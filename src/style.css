@@ -1,0 +1,118 @@
+#landing-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    transition: opacity 1.5s ease;
+}
+
+.landing-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000000;
+    z-index: -1;
+}
+
+.landing-content {
+    padding: 40px;
+    max-width: 800px;
+    z-index: 2;
+}
+
+.landing-title {
+    margin: 0 0 10px 0;
+    font-size: 5rem;
+    font-weight: 200;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    background: linear-gradient(to bottom, #ffffff, #aaaaaa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+}
+
+.landing-subtitle {
+    margin: 0 0 60px 0;
+    font-size: 1.2rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #8899aa;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 15px 0;
+    display: inline-block;
+}
+
+#enter-vr-btn {
+    padding: 18px 60px;
+    font-size: 1.1rem;
+    letter-spacing: 0.2em;
+    font-weight: 400;
+    color: white;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 0;
+    /* Cinematic sharp edges */
+    cursor: pointer;
+    transition: all 0.4s ease;
+    text-transform: uppercase;
+    backdrop-filter: blur(10px);
+}
+
+#enter-vr-btn:hover {
+    background: white;
+    color: black;
+    box-shadow: 0 0 40px rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
+}
+
+.landing-footer {
+    margin-top: 50px;
+    font-size: 0.8rem;
+    color: #556677;
+    letter-spacing: 0.1em;
+    font-weight: 300;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .landing-content {
+        padding: 20px;
+    }
+
+    .landing-title {
+        font-size: 3rem;
+        letter-spacing: 0.2em;
+    }
+
+    .landing-subtitle {
+        font-size: 0.9rem;
+        margin-bottom: 40px;
+    }
+
+    #enter-vr-btn {
+        padding: 15px 40px;
+        font-size: 0.9rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .landing-footer {
+        margin-top: 30px;
+        font-size: 0.7rem;
+    }
+}

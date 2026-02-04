@@ -1,0 +1,62 @@
+/**
+ * Device Detection Utilities
+ * Provides functions to detect iOS devices and WebXR support
+ */
+
+/**
+ * Detects if the current device is running iOS
+ * Includes detection for iPadOS (which reports as MacIntel)
+ */
+export function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+/**
+ * Detects if the browser supports WebXR API
+ */
+export function isWebXRSupported() {
+    return 'xr' in navigator;
+}
+
+/**
+ * Detects if the device supports DeviceOrientation events (gyroscope)
+ */
+export function hasGyroscope() {
+    return 'DeviceOrientationEvent' in window;
+}
+
+/**
+ * Requests permission for DeviceOrientation on iOS 13+
+ * Returns a promise that resolves to true if permission granted
+ */
+export async function requestGyroscopePermission() {
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+            const permission = await DeviceOrientationEvent.requestPermission();
+            return permission === 'granted';
+        } catch (e) {
+            console.error('Gyroscope permission error:', e);
+            return false;
+        }
+    }
+    // Non-iOS or older iOS - permission not required
+    return true;
+}
+
+/**
+ * Detects if the device is mobile (touch-enabled)
+ */
+export function isMobile() {
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
+/**
+ * Check if Cardboard mode is forced via URL parameter (?cardboard=true)
+ * Useful for testing iOS Cardboard mode on PC
+ */
+export function isCardboardForced() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('cardboard') === 'true';
+}

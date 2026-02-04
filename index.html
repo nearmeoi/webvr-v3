@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <!-- Web App Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Virtual Tour">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+    <link rel="apple-touch-icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+    <!-- Google Fonts - Roboto for 3D UI -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <title>Virtual Tour</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: #fff;
+            font-family: sans-serif;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+
+<div id="landing-screen">
+    <!-- Background Image with Blur -->
+    <div class="landing-bg"></div>
+
+    <div class="landing-content">
+        <h1 class="landing-title">
+            LOSARI
+        </h1>
+        <p class="landing-subtitle">
+            A VIRTUAL CINEMATIC JOURNEY
+        </p>
+
+        <button id="enter-vr-btn">
+            START EXPERIENCE
+        </button>
+
+        <p class="landing-footer">
+            Headphones Recommended • Auto-Guided Tour
+        </p>
+    </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
