@@ -33,6 +33,7 @@ class App {
         this.initComponents();
         this.initEventListeners();
         this.initLandingScreen();
+        this.initAdminPanel();
 
         // Start render loop
         this.clock = new THREE.Clock();
@@ -201,48 +202,124 @@ class App {
             // Force update ALL world matrices before raycasting
             this.scene.updateMatrixWorld(true);
 
-            const interactables = this.getInteractables();
-            console.log('[DEBUG] Click - Interactables count:', interactables.length);
+            // ADMIN INTERACTION PRIORITY
+            // We must check this FIRST before normal interaction loops
+            if (this.panoramaViewer && this.panoramaViewer.isAdminMode) {
+                // Reuse existing raycaster
+                // Explicitly intersect with sphere and hotspots
+                const adminObjects = [this.panoramaViewer.sphere];
+                if (this.panoramaViewer.group) {
+                    this.panoramaViewer.group.traverse(child => {
+                        if (child.userData && child.userData.hotspotData) {
+                            adminObjects.push(child);
+                        }
+                    });
+                }
 
-            // Log first button world position if available
-            if (this.tourDirector?.pauseBtn) {
-                const worldPos = new THREE.Vector3();
-                this.tourDirector.pauseBtn.getWorldPosition(worldPos);
-                console.log('[DEBUG] Pause button world pos:', worldPos.x.toFixed(2), worldPos.y.toFixed(2), worldPos.z.toFixed(2));
-                console.log('[DEBUG] Ray origin:', raycaster.ray.origin.x.toFixed(2), raycaster.ray.origin.y.toFixed(2), raycaster.ray.origin.z.toFixed(2));
-                console.log('[DEBUG] Ray direction:', raycaster.ray.direction.x.toFixed(2), raycaster.ray.direction.y.toFixed(2), raycaster.ray.direction.z.toFixed(2));
+                const adminIntersects = raycaster.intersectObjects(adminObjects, false); // No recursion needed if we passed flat list, or true if group
+
+                if (this.panoramaViewer.handleAdminClick(adminIntersects)) {
+                    return;
+                }
             }
 
+            // Normal Interaction
+            const interactables = this.getInteractables();
+            // Reuse existing raycaster (already set from camera)
             const intersects = raycaster.intersectObjects(interactables, true);
-            console.log('[DEBUG] Intersects count:', intersects.length);
-
-            // Log all intersects with distances
-            intersects.forEach((hit, i) => {
-                console.log(`[DEBUG] Hit ${i}: distance=${hit.distance.toFixed(2)}, name=${hit.object.name || hit.object.userData?.label || 'unknown'}`);
-            });
 
             if (intersects.length > 0) {
                 let target = intersects[0].object;
-                console.log('[DEBUG] First hit object:', target.userData?.label || target.name || 'unknown');
 
-                // Traverse up to find the interactable group/mesh
+                // Traverse up
                 while (target && !target.userData.isInteractable && target.parent) {
                     target = target.parent;
                 }
 
                 if (target && target.userData.isInteractable && target.onClick) {
-                    console.log('[DEBUG] Triggering onClick for:', target.userData?.label || 'button');
-                    // Trigger click immediately
                     target.onClick(intersects[0]);
-
-                    // Reset gaze timer if we clicked what we were looking at
-                    if (this.gazeController && this.gazeController.hoveredObject === target) {
-                        this.gazeController.hoverTime = 0;
-                        this.gazeController.progressMesh.scale.set(0, 0, 1);
-                    }
                 }
             }
         });
+
+        // Right Click Interaction (Admin Add Hotspot)
+        window.addEventListener('contextmenu', (event) => {
+            if (!this.panoramaViewer?.isAdminMode) return;
+
+            // Prevent default menu
+            event.preventDefault();
+
+            // Use canvas bounds
+            const rect = this.renderer.domElement.getBoundingClientRect();
+            const mouse = new THREE.Vector2();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, this.camera);
+
+            // Raycast against sphere for placement
+            const intersects = raycaster.intersectObject(this.panoramaViewer.sphere);
+
+            if (this.panoramaViewer.handleAdminRightClick(intersects)) {
+                // Handled
+            }
+        });
+    }
+
+    initAdminPanel() {
+        // Dynamic import or just normal import? using normal for now
+        import('./components/AdminPanel.js').then(({ AdminPanel }) => {
+            this.adminPanel = new AdminPanel(this.panoramaViewer);
+            window.adminPanel = this.adminPanel; // Global access for debug/hook
+        });
+
+        // --- Admin Drag-and-Drop Handler ---
+        window.addEventListener('mousedown', (e) => {
+            if (!this.panoramaViewer?.isAdminMode) return;
+
+            const { raycaster, intersects } = this.raycast(e);
+
+            // Check Admin Drag Start
+            if (this.panoramaViewer.handleAdminMouseDown(intersects)) {
+                this.controls.enabled = false; // Disable camera
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!this.panoramaViewer?.isAdminMode) return;
+
+            if (this.panoramaViewer.isDraggingHotspot) {
+                const { raycaster } = this.raycast(e);
+                this.panoramaViewer.handleAdminMouseMove(raycaster);
+            }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (this.panoramaViewer?.isDraggingHotspot) {
+                this.panoramaViewer.handleAdminMouseUp();
+                this.controls.enabled = true; // Re-enable camera
+            }
+        });
+    }
+
+    raycast(event) {
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        const mouse = new THREE.Vector2();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(mouse, this.camera);
+
+        // Include sphere for admin checks
+        const interactables = [...this.getInteractables()];
+        if (this.panoramaViewer && this.panoramaViewer.sphere) {
+            interactables.push(this.panoramaViewer.sphere);
+        }
+
+        const intersects = raycaster.intersectObjects(interactables, true);
+        return { raycaster, intersects };
     }
 
     initLandingScreen() {

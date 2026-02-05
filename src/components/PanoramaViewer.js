@@ -3,6 +3,8 @@ import { TOUR_DATA } from '../data/tourData.js'; // Import data for reference if
 import { CanvasUI } from '../utils/CanvasUI.js';
 import { AudioControls } from './AudioControls.js';
 import { CONFIG } from '../config.js';
+import HOTSPOTS_DATA from '../data/hotspots.json';
+import { SCENE_MAP } from '../data/sceneMap.js';
 
 export class PanoramaViewer {
     constructor(scene, onBack, camera, renderer) {
@@ -14,7 +16,9 @@ export class PanoramaViewer {
         this.group.position.set(0, 1.6, 0); // Center everything at eye level
         this.scene.add(this.group);
         this.group.visible = false; // Hidden initially
+        this.group.visible = false; // Hidden initially
         this.currentAudio = null;
+        this.isAdminMode = false;
 
         // 1. Sphere Pano (radius must be < camera far clip)
         const geometry = new THREE.SphereGeometry(50, 64, 32); // Reduced segments as parallax is gone
@@ -47,31 +51,7 @@ export class PanoramaViewer {
         // Reuse arrow texture for all hotspots to save memory
         this.arrowTexture = null;
 
-        // DEBUG: Click to get angle (only enabled for development)
-        const DEBUG_MODE = false; // Set to true to enable angle debugging
-        if (DEBUG_MODE) {
-            this.onDebugClick = (event) => {
-                if (!this.group.visible) return;
-
-                const mouse = new THREE.Vector2();
-                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-                const raycaster = new THREE.Raycaster();
-                raycaster.setFromCamera(mouse, this.camera);
-
-                const intersects = raycaster.intersectObject(this.sphere);
-                if (intersects.length > 0) {
-                    const worldPoint = intersects[0].point;
-                    const localPoint = this.sphere.worldToLocal(worldPoint.clone());
-                    let angleDeg = Math.atan2(localPoint.x, -localPoint.z) * (180 / Math.PI);
-                    if (angleDeg < 0) angleDeg += 360;
-                    angleDeg = Math.round(angleDeg);
-                    console.log(`ANGLE: ${angleDeg}° (click same spot on panorama = same angle)`);
-                }
-            };
-            window.addEventListener('click', this.onDebugClick);
-        }
+        // Debug click listener removed
     }
 
     createBackButton() {
@@ -105,6 +85,12 @@ export class PanoramaViewer {
         };
 
         this.controlDock.add(this.backBtn);
+    }
+
+    setAdminMode(isAdmin) {
+        this.isAdminMode = isAdmin;
+        console.log('Admin Mode set to:', isAdmin);
+        // Maybe visual feedback?
     }
 
     setAudioButtonsPosition(mode, subLocationCount = 0, lastItemTheta = undefined) {
@@ -221,8 +207,10 @@ export class PanoramaViewer {
             this.sphere.material = this.basicMaterial;
             this.useParallax = false;
             this.hideLoading(); // Ensure loading is hidden immediately
+            this.checkAndLoadHotspots(path);
             return;
         }
+
 
         // Show loading indicator
         this.showLoading();
@@ -242,6 +230,7 @@ export class PanoramaViewer {
                 this.useParallax = false;
                 // Hide loading indicator
                 this.hideLoading();
+                this.checkAndLoadHotspots(path);
             },
             (xhr) => {
                 // Progress
@@ -401,39 +390,89 @@ export class PanoramaViewer {
         }
     }
 
-    createArrowTexture() {
-        if (this.arrowTexture) {
-            return this.arrowTexture;
-        }
+    drawPremiumButton(ctx, w, h, text, isActive = false) {
+        ctx.clearRect(0, 0, w, h);
 
-        // Use standard canvas logic, but done once
-        const canvas = document.createElement('canvas');
-        canvas.width = 128;
-        canvas.height = 128;
-        const ctx = canvas.getContext('2d');
+        const padding = 8;
+        const radius = 20;
 
         // Outer glow
-        ctx.beginPath();
-        ctx.arc(64, 64, 50, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(173, 216, 230, 0.2)';
+        ctx.shadowColor = isActive ? 'rgba(100, 255, 150, 0.6)' : 'rgba(255, 50, 50, 0.5)';
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        // Background gradient (glassmorphism)
+        CanvasUI.roundRect(ctx, padding, padding, w - padding * 2, h - padding * 2, radius);
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, h);
+        if (isActive) {
+            gradient.addColorStop(0, 'rgba(80, 180, 100, 0.95)');
+            gradient.addColorStop(1, 'rgba(40, 120, 60, 0.9)');
+        } else {
+            // RED Gradient for Hotspots
+            gradient.addColorStop(0, 'rgba(220, 60, 60, 0.95)');
+            gradient.addColorStop(1, 'rgba(140, 30, 30, 0.9)');
+        }
+        ctx.fillStyle = gradient;
         ctx.fill();
 
-        // Stroke
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = 'rgba(70, 130, 180, 0.7)';
+        // Inner highlight (top edge)
+        ctx.shadowBlur = 0;
+        CanvasUI.roundRect(ctx, padding + 2, padding + 2, w - padding * 2 - 4, (h - padding * 2) * 0.4, radius - 2);
+        const highlightGrad = ctx.createLinearGradient(0, padding, 0, h * 0.4);
+        highlightGrad.addColorStop(0, 'rgba(255, 255, 255, 0.25)');
+        highlightGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = highlightGrad;
+        ctx.fill();
+
+        // Border
+        CanvasUI.roundRect(ctx, padding, padding, w - padding * 2, h - padding * 2, radius);
+        ctx.strokeStyle = isActive ? 'rgba(150, 255, 180, 0.8)' : 'rgba(255, 100, 100, 0.8)';
+        ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Inner core
-        ctx.beginPath();
-        ctx.arc(64, 64, 25, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(240, 248, 255, 0.95)';
-        ctx.fill();
+        // Icon
+        this.drawIcon(ctx, w, h, 'icon-arrow');
+    }
 
-        // Center dot
-        ctx.beginPath();
-        ctx.arc(64, 64, 8, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(50, 50, 50, 0.8)';
-        ctx.fill();
+    drawIcon(ctx, w, h, iconId) {
+        ctx.save();
+        ctx.translate(w / 2, h / 2);
+        const scale = 1.2;
+        ctx.scale(scale, scale);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+
+        if (iconId === 'icon-arrow') {
+            // Arrow Up
+            const size = 15;
+            ctx.beginPath();
+            ctx.moveTo(0, -size);
+            ctx.lineTo(size, size);
+            ctx.lineTo(0, size * 0.5);
+            ctx.lineTo(-size, size);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    createArrowTexture() {
+        if (this.arrowTexture) return this.arrowTexture;
+
+        const w = 128; // Square texture
+        const h = 128;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+
+        this.drawPremiumButton(ctx, w, h, 'icon-arrow', false);
 
         this.arrowTexture = new THREE.CanvasTexture(canvas);
         return this.arrowTexture;
@@ -447,16 +486,10 @@ export class PanoramaViewer {
         // 'info' -> Info icon?
         // For now, use simple circles/planes with distinguishable aspect or color
 
-        const geometry = new THREE.CircleGeometry(0.2, 32);
-        let color = 0xffffff;
-        if (data.type === 'photo') color = 0xffcc00; // Gold for History
-        if (data.type === 'info') color = 0x00ccff; // Blue for Info
-        if (data.type === 'scene') color = 0xffffff; // White for movement
-
+        const geometry = new THREE.PlaneGeometry(3, 3); // Larger plane for the button
         const material = new THREE.MeshBasicMaterial({
-            color: color,
+            map: this.createArrowTexture(),
             transparent: true,
-            opacity: 0.8,
             side: THREE.DoubleSide,
             depthTest: false
         });
@@ -469,7 +502,10 @@ export class PanoramaViewer {
         // Convert Pitch/Yaw (deg) to Vector3
         // Yaw = Rotation around Y (left/right). 0 = Center (-Z)
         // Pitch = Rotation around X (up/down). 0 = Horizon
-        const yawRad = THREE.MathUtils.degToRad(data.yaw || 0);
+        // Yaw offset: User requested -90deg rotation from the inverted state (180).
+        // 180 - 90 = 90.
+        // Standard formula (0) + 90 = 90.
+        const yawRad = THREE.MathUtils.degToRad((data.yaw || 0) + 90);
         const pitchRad = THREE.MathUtils.degToRad(data.pitch || 0);
 
         const x = radius * Math.sin(yawRad) * Math.cos(pitchRad);
@@ -486,14 +522,13 @@ export class PanoramaViewer {
         mesh.onClick = () => {
             console.log('Clicked hotspot:', data.label, data.type);
 
-            if (data.type === 'photo') {
+            if (data.type === 'scene' || data.target) {
+                this.navigateToScene(data.target);
+            } else if (data.type === 'photo') {
                 this.photoOverlay.show(data.data, () => console.log('Photo closed'));
             } else if (data.type === 'info') {
                 // Determine rotation for panel to face user
                 const rotationY = Math.atan2(mesh.position.x, mesh.position.z) + Math.PI;
-                this.curvedInfoPanel.show(data.data, mesh.position.clone().multiplyScalar(0.1), rotationY); // much closer?
-                // Wait, CurvedInfoPanel expects world position.
-                // If we put it at mesh position (45m), it's too far.
                 // It should appear 2m in front of user in Direction of hotspot.
                 const panelPos = mesh.position.clone().normalize().multiplyScalar(2.5); // 2.5m away
                 this.curvedInfoPanel.show(data.data, panelPos, rotationY);
@@ -538,6 +573,601 @@ export class PanoramaViewer {
         this.currentHotspots = [];
     }
 
+    navigateToScene(target) {
+        // target can be an ID (key in SCENE_MAP) or a direct path
+        const sceneData = SCENE_MAP[target];
+
+        if (sceneData) {
+            console.log(`Navigating to ID: ${target} (${sceneData.path})`);
+            this.clearHotspots();
+            this.loadTexture(sceneData.path);
+        } else if (typeof target === 'string' && (target.includes('/') || target.includes('.'))) {
+            // Assume it's a direct path
+            console.log(`Navigating to Path: ${target}`);
+        } else if (typeof target === 'string' && (target.includes('/') || target.includes('.'))) {
+            // Assume it's a direct path
+            console.log(`Navigating to Path: ${target}`);
+            this.clearHotspots();
+            // Manually set currentLocation for saving later
+            this.currentLocation = { path: target, id: null };
+            this.loadTexture(target);
+        } else {
+            console.warn(`Target scene invalid or not found: ${target}`);
+        }
+    }
+
+    checkAndLoadHotspots(path) {
+        // Now that HOTSPOTS_DATA is keyed by Path, we can look up directly.
+        // Incoming path might be absolute or relative. We should standardize.
+        // Our keys are like "assets/Museum Kota Makassar/file.jpg".
+
+        // Try to find exact match or partial match
+        // 1. Direct match
+        let hotspots = HOTSPOTS_DATA[path];
+
+        // 2. If not found, try to find a key that is contained in the path
+        if (!hotspots) {
+            const key = Object.keys(HOTSPOTS_DATA).find(k => path.includes(k) || k.includes(path));
+            if (key) hotspots = HOTSPOTS_DATA[key];
+        }
+
+        if (hotspots) {
+            console.log(`Loaded ${hotspots.length} hotspots for path: ${path}`);
+            // Adapt hotspot format if needed, but if we migrated data, it should be clean?
+            // Migration script preserved old data structure { yaw, pitch, target, target_name, type? }
+            // So we just pass it through.
+
+            const adaptedHotspots = hotspots.map(h => ({
+                type: h.type || 'arrow', // Default to arrow
+                yaw: h.yaw,
+                pitch: h.pitch,
+                target: h.target,
+                label: h.target_name || h.label // Support both
+            }));
+
+            this.renderHotspots(adaptedHotspots);
+        } else {
+            console.log(`No hotspots found for path: ${path}`);
+            this.currentHotspots = [];
+        }
+    }
+
+    setAdminMode(isActive) {
+        this.isAdminMode = isActive;
+
+        // Show/Hide "Add Hotspot" phantom or cursor logic could go here
+        // For now, we rely on click handlers checking this.isAdminMode
+
+        if (isActive) {
+            console.log('Admin Mode Enabled');
+            // Ensure icons are refreshed if we want to show edit-specific visuals (e.g. bounding boxes)
+        } else {
+            console.log('Admin Mode Disabled');
+        }
+    }
+
+    // --- Admin / Editing Methods ---
+
+    getAllHotspotsData() {
+        // Collect all hotspots from the scene and return as JSON object
+        // Keyed by Path now.
+
+        // 1. Get current path
+        // We assume currentLocation is set with at least { path: ... }
+        // If not, we might be in trouble.
+        // Helper: retrieve path from cached texture or current logic?
+
+        let currentPath = this.currentLocation?.path;
+        if (!currentPath) {
+            // Fallback: finding ID?
+            // If we don't have a path, we can't save to the correct key.
+            console.error('Cannot save hotspots: No current path identified.');
+            return {};
+        }
+
+        // 2. Convert current 3D meshes back to Data
+        const currentSceneHotspots = this.currentHotspots.map(mesh => {
+            const data = mesh.userData.hotspotData;
+
+            // Recalculate Yaw/Pitch from current position (in case it was dragged)
+            const p = mesh.position.clone().normalize();
+            const pitch = THREE.MathUtils.radToDeg(Math.asin(p.y));
+            let standardYaw = THREE.MathUtils.radToDeg(Math.atan2(p.x, -p.z));
+            let yaw = standardYaw - 90;
+            if (yaw < -180) yaw += 360;
+            if (yaw > 180) yaw -= 360;
+
+            return {
+                yaw: parseFloat(yaw.toFixed(2)),
+                pitch: parseFloat(pitch.toFixed(2)),
+                target: data.target,
+                target_name: data.label || data.target_name,
+                type: data.type || 'arrow'
+            };
+        });
+
+        // 3. Update the global HOTSPOTS_DATA for this scene
+        const fullData = { ...HOTSPOTS_DATA };
+
+        // Find the key that corresponds to currentPath in fullData
+        // We know we just keyed them by path.
+        // It should match exactly if we are consistent. "assets/Museum Kota Makassar/..."
+        // If currentPath is like "assets/..." great.
+
+        // Try strict match first
+        if (fullData[currentPath]) {
+            fullData[currentPath] = currentSceneHotspots;
+        } else {
+            // Fuzzy match key?
+            const key = Object.keys(fullData).find(k => currentPath.includes(k) || k.includes(currentPath));
+            if (key) {
+                fullData[key] = currentSceneHotspots;
+            } else {
+                // Create new entry?
+                fullData[currentPath] = currentSceneHotspots;
+            }
+        }
+
+        return fullData;
+    }
+
+    addHotspot(yaw, pitch) {
+        if (!this.isAdminMode) return;
+
+        const newData = {
+            type: 'arrow',
+            yaw: yaw,
+            pitch: pitch,
+            target: '',
+            label: 'New Hotspot'
+        };
+
+        const mesh = this.createHotspotMesh(newData);
+        if (mesh) {
+            this.group.add(mesh);
+            this.currentHotspots.push(mesh);
+
+            // Select it immediately
+            if (window.adminPanel) {
+                window.adminPanel.selectHotspot(mesh.userData.hotspotData);
+            }
+        }
+    }
+
+    removeHotspot(data) {
+        const mesh = this.currentHotspots.find(m => m.userData.hotspotData === data);
+        if (mesh) {
+            this.group.remove(mesh);
+            this.currentHotspots = this.currentHotspots.filter(m => m !== mesh);
+            mesh.geometry.dispose();
+            mesh.material.dispose();
+        }
+    }
+
+    refreshHotspot(data) {
+        // Called when data (like icon type) changes
+        // Easiest way: remove and re-create
+        const oldMesh = this.currentHotspots.find(m => m.userData.hotspotData === data);
+        if (oldMesh) {
+            this.group.remove(oldMesh);
+            this.currentHotspots = this.currentHotspots.filter(m => m !== oldMesh);
+            oldMesh.geometry.dispose();
+            oldMesh.material.dispose();
+        }
+
+        const newMesh = this.createHotspotMesh(data);
+        if (newMesh) {
+            this.group.add(newMesh);
+            this.currentHotspots.push(newMesh);
+        }
+    }
+
+    getAllHotspotsData() {
+        // Get current path
+        let currentPath = this.currentLocation?.path;
+        if (!currentPath && this.currentLocation?.id) {
+            // Try to find path from SCENE_MAP
+            const sceneData = SCENE_MAP[this.currentLocation.id];
+            if (sceneData) currentPath = sceneData.path;
+        }
+
+        if (!currentPath) {
+            console.error('Cannot save hotspots: No current path identified.');
+            return {};
+        }
+
+        // Extract hotspot data from current meshes
+        const currentSceneHotspots = this.currentHotspots.map(mesh => {
+            const data = mesh.userData.hotspotData;
+            return {
+                yaw: data.yaw,
+                pitch: data.pitch,
+                target: data.target || '',
+                label: data.label || '',
+                type: data.type || 'arrow',
+                target_name: data.target_name || ''
+            };
+        });
+
+        // Merge with existing HOTSPOTS_DATA
+        const fullData = { ...HOTSPOTS_DATA };
+
+        // Use path as key for saving
+        if (fullData[currentPath]) {
+            fullData[currentPath] = currentSceneHotspots;
+        } else {
+            // Fuzzy match or create new entry
+            const key = Object.keys(fullData).find(k => currentPath.includes(k) || k.includes(currentPath));
+            if (key) {
+                fullData[key] = currentSceneHotspots;
+            } else {
+                fullData[currentPath] = currentSceneHotspots;
+            }
+        }
+
+        return fullData;
+    }
+
+    updateHotspotVisuals() {
+        // Called by AdminPanel when label changes
+        this.currentHotspots.forEach(mesh => {
+            const data = mesh.userData.hotspotData;
+
+            // Remove old label
+            if (mesh.userData.labelSprite) {
+                mesh.remove(mesh.userData.labelSprite);
+                mesh.userData.labelSprite = null;
+            }
+
+            // Add new label if exists
+            if (data.label) {
+                const labelSprite = this.createLabelSprite(data.label);
+                labelSprite.position.set(0, -2, 0);
+                mesh.add(labelSprite);
+                mesh.userData.labelSprite = labelSprite;
+            }
+        });
+    }
+
+    createLabelSprite(text) {
+        const canvas = document.createElement('canvas');
+        const fontSize = 48; // High res
+        const padding = 20;
+
+        const ctx = canvas.getContext('2d');
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        const metrics = ctx.measureText(text);
+        const textWidth = metrics.width;
+
+        canvas.width = textWidth + padding * 2;
+        canvas.height = fontSize + padding * 2;
+
+        // Background rounded box
+        const w = canvas.width;
+        const h = canvas.height;
+        const r = 16;
+
+        const ctx2 = canvas.getContext('2d'); // refresh context dimensions
+        ctx2.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx2.beginPath();
+        ctx2.roundRect(0, 0, w, h, r);
+        ctx2.fill();
+
+        // Border
+        ctx2.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx2.lineWidth = 2;
+        ctx2.stroke();
+
+        // Text
+        ctx2.font = `bold ${fontSize}px sans-serif`;
+        ctx2.fillStyle = '#ffffff';
+        ctx2.textAlign = 'center';
+        ctx2.textBaseline = 'middle';
+        ctx2.fillText(text, w / 2, h / 2);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: false // Always visible on top? Maybe true for realism
+        });
+
+        const sprite = new THREE.Sprite(material);
+        // Scale down
+        sprite.scale.set(w * 0.02, h * 0.02, 1);
+
+        return sprite;
+    }
+
+    // --- Interaction Override ---
+
+    // We need to inject logic into the existing click handler or Raycaster
+    // In constructor, we set this.onDebugClick. We should standardize this.
+
+    handleAdminClick(intersects) {
+        if (!this.isAdminMode) return false;
+
+        // If we were dragging, click should be ignored or handled as "end drag"
+        if (this.isDraggingHotspot) {
+            this.isDraggingHotspot = false;
+            this.draggedMesh = null;
+            return true;
+        }
+
+        if (intersects.length > 0) {
+            const hit = intersects[0];
+            const object = hit.object;
+
+            // 1. Clicked Existing Hotspot - Select it
+            if (object.userData.hotspotData) {
+                if (window.adminPanel) {
+                    window.adminPanel.selectHotspot(object.userData.hotspotData);
+                }
+                return true; // Handled
+            }
+
+            // 2. Clicked Background (Sphere) -> Deselect
+            if (object === this.sphere) {
+                if (window.adminPanel) {
+                    window.adminPanel.selectHotspot(null);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    handleAdminRightClick(intersects) {
+        if (!this.isAdminMode) return false;
+
+        if (intersects.length > 0) {
+            const hit = intersects[0];
+            const object = hit.object;
+
+            // Only place new hotspot if clicked on sphere
+            if (object === this.sphere) {
+                const point = hit.point.normalize();
+                const pitch = THREE.MathUtils.radToDeg(Math.asin(point.y));
+                let standardYaw = THREE.MathUtils.radToDeg(Math.atan2(point.x, -point.z));
+                let yaw = standardYaw - 90;
+                if (yaw < -180) yaw += 360;
+                if (yaw > 180) yaw -= 360;
+
+                this.addHotspot(parseFloat(yaw.toFixed(2)), parseFloat(pitch.toFixed(2)));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // --- Drag Logic ---
+
+    handleAdminMouseDown(intersects) {
+        if (!this.isAdminMode) return false;
+
+        if (intersects.length > 0) {
+            const hit = intersects[0];
+            if (hit.object.userData.hotspotData) {
+                this.isDraggingHotspot = true;
+                this.draggedMesh = hit.object;
+
+                // Select it too
+                if (window.adminPanel) {
+                    window.adminPanel.selectHotspot(this.draggedMesh.userData.hotspotData);
+                }
+
+                return true; // Capture event (should disable OrbitControls)
+            }
+        }
+        return false;
+    }
+
+    handleAdminMouseMove(raycaster) {
+        if (!this.isAdminMode || !this.isDraggingHotspot || !this.draggedMesh) return false;
+
+        // Raycast against the sphere to find new position
+        const intersects = raycaster.intersectObject(this.sphere);
+        if (intersects.length > 0) {
+            const point = intersects[0].point;
+
+            // Update Mesh Position
+            // We want it slightly inside the sphere so it's visible, but createHotspotMesh uses radius 45.
+            // Point is on sphere (radius 50).
+            const radius = 45;
+            const p = point.clone().normalize().multiplyScalar(radius);
+            this.draggedMesh.position.copy(p);
+            this.draggedMesh.lookAt(0, 0, 0);
+
+            // Update Data (for UI feedback if needed)
+            // We commit to data structure on MouseUp usually, or update real-time?
+            // Let's update real-time so UI sliders move? expensive. 
+            // Better to just move visual.
+        }
+        return true;
+    }
+
+    handleAdminMouseUp() {
+        if (this.isDraggingHotspot && this.draggedMesh) {
+            this.isDraggingHotspot = false;
+
+            // Sync new position to global data structure
+            // 1. Calculate new yaw/pitch
+            const p = this.draggedMesh.position.clone().normalize();
+            const pitch = THREE.MathUtils.radToDeg(Math.asin(p.y));
+            let standardYaw = THREE.MathUtils.radToDeg(Math.atan2(p.x, -p.z));
+            let yaw = standardYaw - 90;
+            if (yaw < -180) yaw += 360;
+            if (yaw > 180) yaw -= 360;
+
+            const data = this.draggedMesh.userData.hotspotData;
+            data.yaw = parseFloat(yaw.toFixed(2));
+            data.pitch = parseFloat(pitch.toFixed(2));
+
+            // Notify Panel to update form values
+            if (window.adminPanel) {
+                window.adminPanel.selectHotspot(data); // Re-select to refresh form
+                window.adminPanel.markDirty();
+            }
+
+            this.draggedMesh = null;
+            return true;
+        }
+        return false;
+    }
+
+    // --- Icon Generation ---
+
+    createIconTexture(type) {
+        const key = 'icon_' + type;
+        if (this.textureCache && this.textureCache.has(key)) {
+            return this.textureCache.get(key);
+        }
+
+        const size = 128;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        // Styles
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+
+        const drawCircleBase = (color) => {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        };
+
+        if (type === 'arrow') {
+            return this.createArrowTexture(); // Use existing method for legacy arrow
+        } else if (type === 'info') {
+            drawCircleBase('#3b82f6'); // Blue
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 80px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('i', size / 2, size / 2);
+        } else if (type === 'plus') { // New: Add/Plus Icon
+            drawCircleBase('#22c55e'); // Green
+            ctx.fillStyle = '#fff';
+            // Plus Sign
+            const t = 12; // thickness
+            const l = 60; // length
+            ctx.fillRect(size / 2 - l / 2, size / 2 - t / 2, l, t); // Horizontal
+            ctx.fillRect(size / 2 - t / 2, size / 2 - l / 2, t, l); // Vertical
+        } else if (type === 'home') { // New: Home Icon
+            drawCircleBase('#8b5cf6'); // Purple
+            ctx.fillStyle = '#fff';
+            // Simple House
+            ctx.beginPath();
+            ctx.moveTo(size / 2, 30);
+            ctx.lineTo(size - 30, 55);
+            ctx.lineTo(30, 55);
+            ctx.fill(); // Roof
+            ctx.fillRect(40, 55, size - 80, 45); // Body
+        } else if (type === 'photo') {
+            drawCircleBase('#f59e0b'); // Amber
+            // Camera Icon
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.rect(34, 44, 60, 40); // Body
+            ctx.fill();
+            ctx.beginPath(); // Lens
+            ctx.arc(64, 64, 15, 0, Math.PI * 2);
+            ctx.fillStyle = '#333';
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); // Flash
+            ctx.rect(50, 36, 28, 8);
+            ctx.fill();
+        } else if (type === 'video') {
+            drawCircleBase('#ef4444'); // Red
+            // Play Triangle
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(50, 40);
+            ctx.lineTo(90, 64);
+            ctx.lineTo(50, 88);
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            // Default/Fallback
+            drawCircleBase('#64748b');
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        if (!this.textureCache) this.textureCache = new Map();
+        this.textureCache.set(key, texture);
+        return texture;
+    }
+
+    createHotspotMesh(data) {
+        if (!data) return null;
+
+        const type = data.type || 'arrow';
+        const geometry = new THREE.PlaneGeometry(3, 3);
+        const material = new THREE.MeshBasicMaterial({
+            map: this.createIconTexture(type),
+            transparent: true,
+            side: THREE.DoubleSide,
+            depthTest: false
+        });
+
+        const mesh = new THREE.Mesh(geometry, material);
+
+        // Position logic
+        const radius = 45;
+        const yawRad = THREE.MathUtils.degToRad((data.yaw || 0) + 90);
+        const pitchRad = THREE.MathUtils.degToRad(data.pitch || 0);
+
+        const x = radius * Math.sin(yawRad) * Math.cos(pitchRad);
+        const y = radius * Math.sin(pitchRad);
+        const z = -radius * Math.cos(yawRad) * Math.cos(pitchRad);
+
+        mesh.position.set(x, y, z);
+        mesh.lookAt(0, 0, 0);
+
+        mesh.userData.isInteractable = true;
+        mesh.userData.hotspotData = data; // Link back to data object
+
+        // Add Label Sprite
+        if (data.label) {
+            const labelSprite = this.createLabelSprite(data.label);
+            labelSprite.position.set(0, -2, 0); // Position below icon
+            mesh.add(labelSprite);
+            mesh.userData.labelSprite = labelSprite;
+        }
+
+        this.addPulseAnimation(mesh);
+
+        mesh.onClick = () => {
+            // Admin mode check happens in main loop, but we can double check or just let normal logic flow
+            // Normal logic:
+            if (!this.isAdminMode) {
+                console.log('Clicked hotspot:', data.label, data.type);
+                if (data.type === 'scene' || data.target) {
+                    this.navigateToScene(data.target);
+                } else if (data.type === 'photo') {
+                    // this.photoOverlay.show(...)
+                    console.log('Open Photo:', data.target_name);
+                } else if (data.type === 'info') {
+                    // Info logic
+                    console.log('Open Info:', data.target_name);
+                }
+            }
+        };
+
+        return mesh;
+    }
     loadFallbackTexture(name) {
         const canvas = document.createElement('canvas');
         canvas.width = 4096; // Higher res for VR

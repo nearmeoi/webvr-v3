@@ -4,16 +4,16 @@
  */
 
 export const TOUR_DATA = [
-    // --- ZONA 1: GERBANG SEJARAH ---
+    // --- ZONA 1: MUSEUM KOTA MAKASSAR ---
     {
         id: 0,
-        title: 'Gerbang Sejarah',
-        subtitle: 'Fort Rotterdam',
-        description: 'Benteng Peninggalan Sejarah',
-        panorama: 'assets/Fort Rotterdam/rotterdam_ai_uploaded.jpg',
-        duration: 10,
+        title: 'Museum Kota Makassar',
+        subtitle: 'Halaman Depan',
+        description: 'Gerbang Masuk Museum',
+        panorama: 'assets/Museum Kota Makassar/030_Halaman Depan_E6D21F.jpg',
+        duration: 200, // Longer duration for exploration
         initialHeading: 0,
-        autoRotate: true,
+        autoRotate: false, // User explores manually
         hotspots: []
     },
 

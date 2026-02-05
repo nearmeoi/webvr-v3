@@ -46,30 +46,28 @@ export class GazeController {
         const direction = new THREE.Vector3();
 
         // In WebXR mode, use the XR camera
+        let currentCamera = this.camera;
         if (this.renderer && this.renderer.xr && this.renderer.xr.isPresenting) {
             const xrCamera = this.renderer.xr.getCamera();
             xrCamera.getWorldPosition(origin);
             xrCamera.getWorldDirection(direction);
+            currentCamera = xrCamera;
         } else {
             this.camera.getWorldPosition(origin);
             this.camera.getWorldDirection(direction);
         }
 
         this.raycaster.set(origin, direction);
+        this.raycaster.camera = currentCamera; // Critical for Sprite raycasting
 
         // Force update world matrices before raycasting
-        scene.updateMatrixWorld(true);
+        if (scene) scene.updateMatrixWorld(true);
 
         const intersects = this.raycaster.intersectObjects(interactables, true); // Recursive check
 
-        // Debug log every 60 frames (1 second at 60fps)
-        this.debugCounter = (this.debugCounter || 0) + 1;
-        if (this.debugCounter % 60 === 0) {
-            console.log('[GAZE DEBUG] Interactables:', interactables.length, 'Intersects:', intersects.length);
-            if (intersects.length > 0) {
-                console.log('[GAZE DEBUG] First hit:', intersects[0].object.userData?.label || intersects[0].object.name || 'unknown', 'distance:', intersects[0].distance.toFixed(2));
-            }
-        }
+        // Debug log removed per user request
+        // this.debugCounter = (this.debugCounter || 0) + 1;
+        // if (this.debugCounter % 60 === 0) ...
 
         if (intersects.length > 0) {
             // Find first VISIBLE interactable object
