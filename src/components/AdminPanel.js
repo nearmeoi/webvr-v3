@@ -135,7 +135,7 @@ export class AdminPanel {
 
         if (!hotspot) {
             this.form.innerHTML = `<div style="text-align: center; color: #64748b; padding: 20px; border: 2px dashed rgba(255,255,255,0.1); border-radius: 8px;">
-                Click anywhere to add a hotspot.<br>Select a hotspot to edit.
+                <strong>Ctrl+Click</strong> or <strong>Right-click</strong> to add a hotspot.<br>Select a hotspot to edit.
             </div>`;
             return;
         }
@@ -287,7 +287,7 @@ export class AdminPanel {
     }
 
     updateSceneInfo() {
-        const id = this.viewer.currentLocation?.id || 'Unknown';
+        const id = this.viewer.currentLocation?.id || this.viewer.currentLocation?.path || 'Unknown';
         this.sceneId = id;
         const el = document.getElementById('admin-scene-id');
         if (el) el.textContent = id;

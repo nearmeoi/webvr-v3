@@ -218,6 +218,13 @@ class App {
 
                 const adminIntersects = raycaster.intersectObjects(adminObjects, false); // No recursion needed if we passed flat list, or true if group
 
+                // Allow CTRL+Click to Add Hotspot (same as Right Click)
+                if (event.ctrlKey) {
+                    if (this.panoramaViewer.handleAdminRightClick(adminIntersects)) {
+                        return;
+                    }
+                }
+
                 if (this.panoramaViewer.handleAdminClick(adminIntersects)) {
                     return;
                 }
