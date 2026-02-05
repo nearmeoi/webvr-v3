@@ -45,6 +45,30 @@ export default defineConfig({
                     }
                 });
 
+                // Middleware 1.5: Get Hotspots (Dynamic)
+                server.middlewares.use('/api/get-hotspots', (req, res, next) => {
+                    if (req.method === 'GET') {
+                        try {
+                            const filePath = path.resolve(__dirname, 'src/data/hotspots.json');
+                            if (fs.existsSync(filePath)) {
+                                const data = fs.readFileSync(filePath, 'utf-8');
+                                res.statusCode = 200;
+                                res.setHeader('Content-Type', 'application/json');
+                                res.end(data);
+                            } else {
+                                res.statusCode = 200;
+                                res.end('{}'); // Return empty object if no file
+                            }
+                        } catch (err) {
+                            console.error('Error reading hotspots:', err);
+                            res.statusCode = 500;
+                            res.end(JSON.stringify({ error: err.message }));
+                        }
+                    } else {
+                        next();
+                    }
+                });
+
                 // Middleware 2: List Scenes
                 server.middlewares.use('/api/list-scenes', (req, res, next) => {
                     if (req.method === 'GET') {
