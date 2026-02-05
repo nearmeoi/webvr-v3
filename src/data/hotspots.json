@@ -1,1 +1,22 @@
-{}
+{
+  "assets/Museum Kota Makassar/030_Halaman Depan_E6D21F.jpg": [
+    {
+      "yaw": 179.9,
+      "pitch": -7.26,
+      "target": "assets/Museum Kota Makassar/lobby_C12D6770.jpg",
+      "target_name": "Masuk Museum",
+      "type": "home",
+      "label": "Masuk Museum"
+    }
+  ],
+  "assets/Museum Kota Makassar/lobby_C12D6770.jpg": [
+    {
+      "yaw": 99.85,
+      "pitch": -8.88,
+      "target": "assets/Museum Kota Makassar/002_Makassar Awal 8_9C4AB9.jpg",
+      "target_name": "Makassar Awal",
+      "type": "arrow",
+      "label": "Makassar Awal"
+    }
+  ]
+}

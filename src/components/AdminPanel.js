@@ -287,8 +287,7 @@ export class AdminPanel {
     }
 
     updateSceneInfo() {
-        const id = this.viewer.currentLocation?.id || 'Unknown';
-        this.sceneId = id;
+        const id = this.viewer.currentSceneId || this.viewer.currentLocation?.id || 'Unknown';
         const el = document.getElementById('admin-scene-id');
         if (el) el.textContent = id;
     }

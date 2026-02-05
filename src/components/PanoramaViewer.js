@@ -3,7 +3,7 @@ import { TOUR_DATA } from '../data/tourData.js'; // Import data for reference if
 import { CanvasUI } from '../utils/CanvasUI.js';
 import { AudioControls } from './AudioControls.js';
 import { CONFIG } from '../config.js';
-import HOTSPOTS_DATA from '../data/hotspots.json';
+// import HOTSPOTS_DATA from '../data/hotspots.json'; // Removed static import
 import { SCENE_MAP } from '../data/sceneMap.js';
 
 export class PanoramaViewer {
@@ -16,7 +16,11 @@ export class PanoramaViewer {
         this.group.position.set(0, 1.6, 0); // Center everything at eye level
         this.scene.add(this.group);
         this.group.visible = false; // Hidden initially
-        this.group.visible = false; // Hidden initially
+
+        // State Tracking
+        this.currentPath = null;
+        this.currentSceneId = null;
+
         this.currentAudio = null;
         this.isAdminMode = false;
 
@@ -48,10 +52,35 @@ export class PanoramaViewer {
         // Ensure GazeController can hit this
         this.group.userData.isInteractable = false; // Container not interactable
 
+
         // Reuse arrow texture for all hotspots to save memory
         this.arrowTexture = null;
 
-        // Debug click listener removed
+        // Initialize Hotspots Data
+        this.hotspotsData = {};
+        this.fetchHotspots(); // Fetch on init
+    }
+
+    async fetchHotspots() {
+        try {
+            const res = await fetch('/api/get-hotspots');
+            if (res.ok) {
+                this.hotspotsData = await res.json();
+                console.log('Hotspots loaded dynamically:', Object.keys(this.hotspotsData).length, ' entries');
+
+                // If we already loaded a scene, refresh hotspots now that we have data
+                if (this.currentPath) {
+                    console.log('Refreshing hotspots for current path:', this.currentPath);
+                    this.checkAndLoadHotspots(this.currentPath);
+                }
+            } else {
+                console.warn('Failed to fetch hotspots, using empty object.');
+                this.hotspotsData = {};
+            }
+        } catch (err) {
+            console.error('Error fetching hotspots:', err);
+            this.hotspotsData = {};
+        }
     }
 
     createBackButton() {
@@ -172,6 +201,7 @@ export class PanoramaViewer {
 
     loadScene(sceneData) {
         console.log('Loading scene:', sceneData.id);
+        this.currentSceneId = sceneData.id; // Track ID
         this.loadTexture(sceneData.path);
         this.renderHotspots(sceneData.links);
 
@@ -188,6 +218,8 @@ export class PanoramaViewer {
     }
 
     loadTexture(path) {
+        this.currentPath = path; // Track Path
+
         // PROTOTYPE MODE: If path starts with "placeholder", generate strictly procedural texture
         if (path && path.startsWith('placeholder')) {
             // Extract zone name/number for display
@@ -207,6 +239,7 @@ export class PanoramaViewer {
             this.sphere.material = this.basicMaterial;
             this.useParallax = false;
             this.hideLoading(); // Ensure loading is hidden immediately
+            console.log('Texture loaded from cache. Loading hotspots...');
             this.checkAndLoadHotspots(path);
             return;
         }
@@ -230,6 +263,7 @@ export class PanoramaViewer {
                 this.useParallax = false;
                 // Hide loading indicator
                 this.hideLoading();
+                console.log('Texture load complete. Loading hotspots for:', path);
                 this.checkAndLoadHotspots(path);
             },
             (xhr) => {
@@ -560,6 +594,7 @@ export class PanoramaViewer {
     }
 
     clearHotspots() {
+        console.log(`Clearing ${this.currentHotspots ? this.currentHotspots.length : 0} hotspots...`);
         if (this.currentHotspots) {
             this.currentHotspots.forEach(mesh => {
                 this.group.remove(mesh);
@@ -571,6 +606,7 @@ export class PanoramaViewer {
             });
         }
         this.currentHotspots = [];
+        console.log('Hotspots cleared. Current count:', this.currentHotspots.length);
     }
 
     navigateToScene(target) {
@@ -579,14 +615,14 @@ export class PanoramaViewer {
 
         if (sceneData) {
             console.log(`Navigating to ID: ${target} (${sceneData.path})`);
+            this.currentSceneId = target; // Track ID
             this.clearHotspots();
             this.loadTexture(sceneData.path);
         } else if (typeof target === 'string' && (target.includes('/') || target.includes('.'))) {
             // Assume it's a direct path
             console.log(`Navigating to Path: ${target}`);
-        } else if (typeof target === 'string' && (target.includes('/') || target.includes('.'))) {
-            // Assume it's a direct path
-            console.log(`Navigating to Path: ${target}`);
+            this.currentSceneId = target; // Track ID
+            console.log('Calling clearHotspots() before loading new texture...');
             this.clearHotspots();
             // Manually set currentLocation for saving later
             this.currentLocation = { path: target, id: null };
@@ -603,12 +639,12 @@ export class PanoramaViewer {
 
         // Try to find exact match or partial match
         // 1. Direct match
-        let hotspots = HOTSPOTS_DATA[path];
+        let hotspots = this.hotspotsData[path];
 
         // 2. If not found, try to find a key that is contained in the path
         if (!hotspots) {
-            const key = Object.keys(HOTSPOTS_DATA).find(k => path.includes(k) || k.includes(path));
-            if (key) hotspots = HOTSPOTS_DATA[key];
+            const key = Object.keys(this.hotspotsData).find(k => path.includes(k) || k.includes(path));
+            if (key) hotspots = this.hotspotsData[key];
         }
 
         if (hotspots) {
@@ -650,17 +686,18 @@ export class PanoramaViewer {
 
     getAllHotspotsData() {
         // Collect all hotspots from the scene and return as JSON object
-        // Keyed by Path now.
+        // Keyed by Path.
 
         // 1. Get current path
-        // We assume currentLocation is set with at least { path: ... }
-        // If not, we might be in trouble.
-        // Helper: retrieve path from cached texture or current logic?
+        let currentPath = this.currentPath;
 
-        let currentPath = this.currentLocation?.path;
+        // If not set directly, try to infer from ID (fallback)
+        if (!currentPath && this.currentSceneId) {
+            const sceneData = SCENE_MAP[this.currentSceneId];
+            if (sceneData) currentPath = sceneData.path;
+        }
+
         if (!currentPath) {
-            // Fallback: finding ID?
-            // If we don't have a path, we can't save to the correct key.
             console.error('Cannot save hotspots: No current path identified.');
             return {};
         }
@@ -682,19 +719,15 @@ export class PanoramaViewer {
                 pitch: parseFloat(pitch.toFixed(2)),
                 target: data.target,
                 target_name: data.label || data.target_name,
-                type: data.type || 'arrow'
+                type: data.type || 'arrow',
+                label: data.label || '' // Ensure label is saved
             };
         });
 
         // 3. Update the global HOTSPOTS_DATA for this scene
-        const fullData = { ...HOTSPOTS_DATA };
+        const fullData = { ...this.hotspotsData };
 
-        // Find the key that corresponds to currentPath in fullData
-        // We know we just keyed them by path.
-        // It should match exactly if we are consistent. "assets/Museum Kota Makassar/..."
-        // If currentPath is like "assets/..." great.
-
-        // Try strict match first
+        // Use path as key for saving
         if (fullData[currentPath]) {
             fullData[currentPath] = currentSceneHotspots;
         } else {
@@ -703,7 +736,7 @@ export class PanoramaViewer {
             if (key) {
                 fullData[key] = currentSceneHotspots;
             } else {
-                // Create new entry?
+                // Create new entry
                 fullData[currentPath] = currentSceneHotspots;
             }
         }
@@ -762,51 +795,8 @@ export class PanoramaViewer {
         }
     }
 
-    getAllHotspotsData() {
-        // Get current path
-        let currentPath = this.currentLocation?.path;
-        if (!currentPath && this.currentLocation?.id) {
-            // Try to find path from SCENE_MAP
-            const sceneData = SCENE_MAP[this.currentLocation.id];
-            if (sceneData) currentPath = sceneData.path;
-        }
 
-        if (!currentPath) {
-            console.error('Cannot save hotspots: No current path identified.');
-            return {};
-        }
 
-        // Extract hotspot data from current meshes
-        const currentSceneHotspots = this.currentHotspots.map(mesh => {
-            const data = mesh.userData.hotspotData;
-            return {
-                yaw: data.yaw,
-                pitch: data.pitch,
-                target: data.target || '',
-                label: data.label || '',
-                type: data.type || 'arrow',
-                target_name: data.target_name || ''
-            };
-        });
-
-        // Merge with existing HOTSPOTS_DATA
-        const fullData = { ...HOTSPOTS_DATA };
-
-        // Use path as key for saving
-        if (fullData[currentPath]) {
-            fullData[currentPath] = currentSceneHotspots;
-        } else {
-            // Fuzzy match or create new entry
-            const key = Object.keys(fullData).find(k => currentPath.includes(k) || k.includes(currentPath));
-            if (key) {
-                fullData[key] = currentSceneHotspots;
-            } else {
-                fullData[currentPath] = currentSceneHotspots;
-            }
-        }
-
-        return fullData;
-    }
 
     updateHotspotVisuals() {
         // Called by AdminPanel when label changes
