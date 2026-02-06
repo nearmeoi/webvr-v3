@@ -116,3 +116,217 @@
         font-size: 0.7rem;
     }
 }
+
+/* ==================== ONBOARDING SCREEN (3DVISTA STYLE) ==================== */
+
+#onboarding-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 5000;
+    font-family: 'Roboto', sans-serif;
+    color: #333;
+}
+
+.onboarding-window {
+    background: white;
+    width: 90%;
+    max-width: 500px;
+    padding: 40px;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.onboarding-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.onboarding-icon {
+    width: 80px;
+    height: 80px;
+}
+
+.onboarding-window h2 {
+    margin: 0;
+    font-size: 1.8rem;
+    color: #444;
+}
+
+.onboarding-desc {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.onboarding-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.onboarding-btn.default {
+    background: #00AEEF;
+    color: white;
+}
+
+.onboarding-btn.v2 {
+    background: #00AEEF;
+    color: white;
+}
+
+.onboarding-btn:hover {
+    filter: brightness(1.1);
+}
+
+.onboarding-btn:active {
+    transform: scale(0.98);
+}
+
+.onboarding-divider {
+    margin: 30px 0;
+    border: none;
+    border-top: 1px solid #eee;
+}
+
+.onboarding-footer-opt {
+    margin-top: 25px;
+    font-size: 0.9rem;
+    color: #888;
+}
+
+.onboarding-footer-opt label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+/* ==================== VR MIRRORED HUD & MODAL ==================== */
+
+.vr-hud-container {
+    font-family: 'Outfit', sans-serif;
+}
+
+.hud-eye {
+    transition: opacity 0.3s ease;
+}
+
+.hud-btn:hover {
+    opacity: 1 !important;
+    transform: scale(1.1);
+}
+
+.hud-btn svg {
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+}
+
+/* Modal Split System */
+.vr-modal-split {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+.vr-modal-side {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.vr-modal-window {
+    background: #fdfdfd;
+    width: 320px;
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+    pointer-events: auto;
+    color: #333;
+}
+
+.vr-modal-window h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.vr-small-desc {
+    font-size: 0.85rem;
+    color: #777;
+    margin-bottom: 20px;
+}
+
+.vr-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+.vr-options label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.vr-save-btn,
+.vr-next-btn {
+    width: 100%;
+    padding: 14px;
+    background: #007AFF;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: transform 0.1s, filter 0.2s;
+}
+
+.vr-save-btn:hover,
+.vr-next-btn:hover {
+    filter: brightness(1.1);
+}
+
+.vr-save-btn:active,
+.vr-next-btn:active {
+    transform: scale(0.98);
+}
+
+.vr-back-link:hover {
+    text-decoration: underline !important;
+}
+
+.vr-save-btn:hover {
+    filter: brightness(1.1);
+}
+
+/* Portrait Fix for VR (Alert user to rotate) */
+@media screen and (orientation: portrait) {
+    .vr-hud-container {
+        display: none !important;
+    }
+}

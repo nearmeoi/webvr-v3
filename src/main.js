@@ -3,15 +3,11 @@ import './style.css';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GazeController } from './components/GazeController.js';
-import { OrbitalMenu } from './components/OrbitalMenu.js';
-import { SubMenu } from './components/SubMenu.js';
 import { PanoramaViewer } from './components/PanoramaViewer.js';
-import { StereoVideoPlayer } from './components/StereoVideoPlayer.js';
 import { CardboardModeManager } from './components/CardboardModeManager.js';
 import { isIOS, isWebXRSupported, isMobile, isCardboardForced } from './utils/deviceDetection.js';
 import { CONFIG } from './config.js';
 import { TOUR_DATA } from './data/tourData.js';
-import { TourDirector } from './components/TourDirector.js';
 
 class App {
     constructor() {
@@ -21,7 +17,6 @@ class App {
 
         // State
         this.currentState = 'welcome';
-        this.currentSubMenuParent = null;
         this.isVRMode = false;
 
         // Setup
@@ -83,9 +78,12 @@ class App {
     }
 
     initCardboardMode() {
-        if (!this.isIOSDevice) return;
+        // iOS MUST use this custom manager because it lacks WebXR Cardboard support
+        // Android/Other should use the native VRButton (WebXR)
+        const isForced = window.location.search.includes('cardboard=true');
+        if (!this.isIOSDevice && !isForced) return;
 
-        console.log('iOS/Cardboard mode enabled - using stereo rendering');
+        console.log('iOS Cardboard mode enabled - using custom stereo effect');
 
         this.cardboardManager = new CardboardModeManager(
             this.renderer,
@@ -96,6 +94,7 @@ class App {
 
         // Sync mode changes with components
         this.cardboardManager.onModeChange = (isVR) => {
+            this.isVRMode = isVR; // Sync state
             if (this.panoramaViewer) {
                 this.panoramaViewer.setVRMode(isVR);
                 // Fix: If in cinematic tour, ensure back button stays hidden when exiting VR
@@ -103,8 +102,11 @@ class App {
                     this.panoramaViewer.setBackButtonVisibility(false);
                 }
             }
-            if (this.stereoVideoPlayer) {
-                this.stereoVideoPlayer.setStereoMode(isVR && !!this.cardboardManager?.stereoEffect);
+        };
+
+        this.cardboardManager.onInteractionModeChange = (mode) => {
+            if (this.gazeController) {
+                this.gazeController.setInteractionMode(mode);
             }
         };
     }
@@ -116,8 +118,8 @@ class App {
         // Gradient background sphere
         this.createGradientBackground();
 
-        // Lighting
-        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 3);
+        // Lighting - Boosted for VR brightness
+        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 10);
         this.scene.add(light);
     }
 
@@ -132,28 +134,6 @@ class App {
             this.camera,
             this.renderer
         );
-
-        // Stereo video player
-        this.stereoVideoPlayer = new StereoVideoPlayer(
-            this.scene,
-            this.camera,
-            this.renderer,
-            () => this.onVideoBack(),
-            () => this.enterCardboardMode(),
-            () => this.exitCardboardMode()
-        );
-
-        // Orbital menu (hidden initially)
-        this.orbitalMenu = new OrbitalMenu(this.scene, this.camera, (index) => {
-            this.onMainMenuSelect(index);
-        });
-        this.orbitalMenu.hide();
-
-        // Sub-menu placeholder
-        this.subMenu = null;
-
-        // Tour Director for cinematic guided tour
-        this.tourDirector = new TourDirector(this);
     }
 
     initEventListeners() {
@@ -179,17 +159,34 @@ class App {
                 this.camera.fov = CONFIG.fov.default;
                 this.camera.updateProjectionMatrix();
                 this.isVRMode = false;
-                if (this.subMenu) this.subMenu.setVRMode(false);
                 this.panoramaViewer.setVRMode(false);
             });
 
+            // VR Controller / Cardboard v2 Button Trigger
+            this.renderer.xr.getController(0).addEventListener('select', () => {
+                if (this.gazeController && this.gazeController.hoveredObject) {
+                    console.log('[VR] Manual trigger via button');
+                    this.gazeController.trigger(this.gazeController.hoveredObject, this.gazeController.hoveredIntersect);
+                }
+            });
         }
 
-        // Mouse Click Interaction (Desktop)
+        // Mouse Click Interaction (Desktop & Cardboard Button)
         window.addEventListener('click', (event) => {
-            // Ignore clicks if in VR mode (handled by controller selection)
-            if (this.isVRMode) return;
+            // Ignore clicks if in WebXR mode (handled by controller selection)
+            // But handle them if in Cardboard mode (handled by gaze trigger)
+            if (this.renderer.xr.enabled && this.renderer.xr.isPresenting) return;
 
+            if (this.isCardboardMode) {
+                // Cardboard mode: click triggers whatever is under the reticle
+                if (this.gazeController && this.gazeController.hoveredObject) {
+                    console.log('[Cardboard] Button trigger');
+                    this.gazeController.trigger(this.gazeController.hoveredObject, this.gazeController.hoveredIntersect);
+                }
+                return;
+            }
+
+            // Normal Interaction (Desktop)
             // Use canvas bounds for accurate mouse position
             const rect = this.renderer.domElement.getBoundingClientRect();
             const mouse = new THREE.Vector2();
@@ -346,18 +343,15 @@ class App {
                 landingScreen.style.display = 'none';
             }, 500);
 
-            // Show welcome screen 
-            // CINEMATIC MODE: Skip welcome screen, go straight to director?
-            // Or keep welcome screen but 'Enter' starts the tour?
-
             // Hide menu just in case
             if (this.orbitalMenu) this.orbitalMenu.hide();
 
-            // Start Director
-            if (this.tourDirector) {
-                console.log('Starting Cinematic Tour...');
-                this.tourDirector.start();
-            }
+            // Load Lobby Panorama directly (Hub model)
+            console.log('Loading Lobby Panorama...');
+            this.currentState = 'panorama';
+            this.panoramaViewer.navigateToScene('assets/Museum Kota Makassar/lobby_C12D6770.jpg');
+            this.panoramaViewer.setBackButtonVisibility(false);
+            this.panoramaViewer.setAudioButtonsPosition('standalone');
 
             // Enter cardboard mode on mobile (slight delay for fullscreen)
             setTimeout(() => {
@@ -457,158 +451,16 @@ class App {
     }
 
     onWelcomeStart() {
-        this.welcomeScreen.hide();
-        this.currentState = 'cinematic-tour';
-
-        // CINEMATIC MODE: Start Director instead of Menu
-        if (this.tourDirector) {
-            console.log('Welcome Screen completed. Starting Cinematic Tour...');
-            this.tourDirector.start();
-        } else {
-            // Fallback to menu if no director
-            this.currentState = 'main-menu';
-            this.orbitalMenu.show();
-        }
-    }
-
-    onMainMenuSelect(index) {
-        const location = TOUR_DATA[index];
-        console.log('Main menu selected:', location.title);
-
-        if (location.subLocations?.length > 0) {
-            this.enterTorajaMode(location);
-        } else if (location.stereoVideo) {
-            this.enterStereoVideoMode(location);
-        } else {
-            this.enterPanoramaMode(location);
-        }
-    }
-
-    /**
-     * Load a location by index - used by TourDirector
-     */
-    loadLocation(index) {
-        const location = TOUR_DATA[index];
-        if (!location) {
-            console.error('Invalid location index:', index);
-            return;
-        }
-
-        console.log('Loading location:', location.title);
-        this.currentState = 'cinematic-tour';
-
-        // Hide menu if visible
-        if (this.orbitalMenu) this.orbitalMenu.hide();
-        if (this.subMenu) this.subMenu.hide();
-
-        // Load panorama
-        this.panoramaViewer.loadFromLocation(location);
-        this.panoramaViewer.setBackButtonVisibility(false); // No back in tour mode
-        this.panoramaViewer.setAudioButtonsPosition('standalone');
-
-        // CRITICAL FIX: Hide legacy AudioControls from PanoramaViewer
-        // They overlap with TourDirector's navigation buttons
-        if (this.panoramaViewer.audioControls) {
-            this.panoramaViewer.audioControls.setVisible(false);
-            // BRUTE FORCE: Move them to infinity to ensure no raycast hits
-            this.panoramaViewer.audioControls.setPosition('standalone', { y: 10000 });
-        }
-    }
-
-    enterTorajaMode(location) {
-        this.orbitalMenu.hide();
-        this.showSubMenu(location);
-        this.panoramaViewer.loadFromLocation(location.subLocations[0]);
-        this.panoramaViewer.setBackButtonVisibility(false);
-
-        // Pass dynamic angle from SubMenu logic
-        const lastItemTheta = this.subMenu.getLastItemTheta();
-        this.panoramaViewer.setAudioButtonsPosition('with-dock', location.subLocations.length, lastItemTheta);
-
-        this.currentState = 'toraja-mode';
-    }
-
-    enterStereoVideoMode(location) {
-        this.orbitalMenu.hide();
-        this.currentState = 'stereo-video';
-        this.currentSubMenuParent = null;
-
-        if (location.projection === 'flat') {
-            // 2D HTML video player
-            if (this.isCardboardMode) {
-                this.exitCardboardMode(true);
-            }
-            this.stereoVideoPlayer.play2D(location.stereoVideo);
-        } else {
-            // 3D VR video player
-            this.stereoVideoPlayer.load(
-                location.stereoVideo,
-                true,
-                location.projection || 'curved',
-                location.format || 'stereo'
-            );
-            if (this.isCardboardMode) {
-                this.stereoVideoPlayer.setStereoMode(true);
-            }
-        }
-
-        if (this.controls) this.controls.enabled = true;
-    }
-
-    enterPanoramaMode(location) {
-        this.orbitalMenu.hide();
+        // Obsolete if landing screen loads directly, but kept for compatibility if called
         this.currentState = 'panorama';
-        this.currentSubMenuParent = null;
-        this.panoramaViewer.loadFromLocation(location);
-        this.panoramaViewer.setBackButtonVisibility(true);
-        this.panoramaViewer.setAudioButtonsPosition('standalone');
-    }
-
-    showSubMenu(parentLocation) {
-        if (this.subMenu) {
-            this.scene.remove(this.subMenu.group);
-            this.subMenu = null;
-        }
-
-        this.currentSubMenuParent = parentLocation;
-        this.subMenu = new SubMenu(
-            this.scene,
-            this.camera,
-            parentLocation,
-            (subLocation) => this.onSubMenuSelect(subLocation),
-            () => this.onSubMenuBack()
-        );
-        this.subMenu.show();
-        this.subMenu.setActive(0);
-
-        if (this.isVRMode) this.subMenu.setVRMode(true);
-    }
-
-    onSubMenuSelect(subLocation) {
-        console.log('Switching to scene:', subLocation.name);
-        this.panoramaViewer.loadFromLocation(subLocation);
-    }
-
-    onSubMenuBack() {
-        if (this.subMenu) this.subMenu.hide();
-        this.panoramaViewer.hide();
-        this.currentState = 'main-menu';
-        this.currentSubMenuParent = null;
-        this.orbitalMenu.show();
+        console.log('Loading Museum Lobby...');
+        this.panoramaViewer.navigateToScene('assets/Museum Kota Makassar/lobby_C12D6770.jpg');
     }
 
     onPanoramaBack() {
-        if (this.currentState === 'cinematic-tour') return;
-        this.panoramaViewer.hide();
-        this.currentState = 'main-menu';
-        this.orbitalMenu.show();
-    }
-
-    onVideoBack() {
-        this.stereoVideoPlayer.hide();
-        this.currentState = 'main-menu';
-        this.orbitalMenu.show();
-        if (this.controls) this.controls.enabled = true;
+        // Menu is disabled, so we just stay in the museum or reload lobby
+        console.log('Back clicked - Menu disabled, staying in museum.');
+        this.panoramaViewer.navigateToScene('assets/Museum Kota Makassar/lobby_C12D6770.jpg');
     }
 
     // ==================== UTILITIES ====================
@@ -658,19 +510,7 @@ class App {
         this.gazeController.update(this.scene, interactables, delta);
 
         // Update components
-        if (this.welcomeScreen) this.welcomeScreen.update(delta);
-
-        // SAFEGUARD: Ensure Orbital Menu is hidden in Cinematic Mode
-        if (this.currentState === 'cinematic-tour' && this.orbitalMenu.group.visible) {
-            this.orbitalMenu.hide();
-        }
-        this.orbitalMenu.update(delta);
-        if (this.subMenu) this.subMenu.update(delta);
         this.panoramaViewer.update(delta);
-        if (this.stereoVideoPlayer) this.stereoVideoPlayer.update(delta);
-
-        // Update TourDirector
-        if (this.tourDirector) this.tourDirector.update(delta);
 
         // Render (stereo or normal)
         const usedStereo = this.cardboardManager?.render(this.scene, this.camera);
@@ -681,24 +521,48 @@ class App {
 
     getInteractables() {
         const list = [];
-
-        // TourDirector buttons FIRST for click priority
-        if (this.tourDirector) {
-            const tourButtons = this.tourDirector.getInteractables();
-            list.push(...tourButtons);
-        }
-
-        // Then other UI elements
-        if (this.welcomeScreen?.group.visible) list.push(this.welcomeScreen.group);
-        if (this.orbitalMenu.group.visible) list.push(this.orbitalMenu.group);
-        if (this.subMenu?.group.visible) list.push(this.subMenu.group);
+        // Only panorama viewer's group (hotspots and dock) are interactable now
         if (this.panoramaViewer.group.visible) list.push(this.panoramaViewer.group);
-        if (this.stereoVideoPlayer?.group.visible) list.push(this.stereoVideoPlayer.group);
-
         return list;
     }
 
     // ==================== CLEANUP ====================
+
+    initLandingScreen() {
+        const landingScreen = document.getElementById('landing-screen');
+        const enterBtn = document.getElementById('enter-vr-btn');
+
+        if (!enterBtn) return;
+
+        enterBtn.addEventListener('click', async () => {
+            // Request fullscreen
+            await this.requestFullscreen();
+
+            // Lock landscape
+            this.lockLandscape();
+
+            // Resume audio context
+            if (THREE.AudioContext?.state === 'suspended') {
+                await THREE.AudioContext.resume();
+            }
+
+            // Initialize Cardboard Manager (includes Gyroscope Request)
+            if (this.cardboardManager) {
+                await this.cardboardManager.initGyroscope();
+            }
+
+            // Fade out landing screen
+            landingScreen.style.opacity = '0';
+            setTimeout(() => {
+                landingScreen.style.display = 'none';
+            }, 500);
+
+            // Load Lobby Panorama directly
+            console.log('Loading Museum Lobby...');
+            this.currentState = 'panorama';
+            this.panoramaViewer.navigateToScene('assets/Museum Kota Makassar/lobby_C12D6770.jpg');
+        });
+    }
 
     dispose() {
         // Remove event listeners
@@ -706,12 +570,9 @@ class App {
         this.container.removeEventListener('wheel', this.boundOnWheel);
 
         // Dispose components
-        this.tourDirector?.dispose?.();
         this.panoramaViewer?.dispose?.();
         this.gazeController?.dispose?.();
         this.cardboardManager?.dispose();
-        this.stereoVideoPlayer?.dispose();
-        this.orbitalMenu?.dispose?.();
     }
 }
 

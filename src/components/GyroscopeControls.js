@@ -27,7 +27,7 @@ export class GyroscopeControls {
 
         // Smoothing
         this.smoothedQuaternion = new THREE.Quaternion();
-        this.smoothFactor = 0.1;
+        this.smoothFactor = 0.3; // More responsive (0.1 was too laggy)
 
         // Bind handlers
         this.onDeviceOrientation = this.onDeviceOrientation.bind(this);
@@ -57,9 +57,11 @@ export class GyroscopeControls {
 
         // Store initial camera orientation
         this.initialQuaternion.copy(this.camera.quaternion);
+        this.smoothedQuaternion.copy(this.camera.quaternion);
 
-        // Add event listeners
+        // Add event listeners (Standard + Absolute fallback for Android)
         window.addEventListener('deviceorientation', this.onDeviceOrientation, false);
+        window.addEventListener('deviceorientationabsolute', this.onDeviceOrientation, false);
         window.addEventListener('orientationchange', this.onScreenOrientation, false);
 
         // Get initial screen orientation
@@ -72,6 +74,7 @@ export class GyroscopeControls {
 
     disable() {
         window.removeEventListener('deviceorientation', this.onDeviceOrientation);
+        window.removeEventListener('deviceorientationabsolute', this.onDeviceOrientation);
         window.removeEventListener('orientationchange', this.onScreenOrientation);
         this.enabled = false;
     }
@@ -96,12 +99,10 @@ export class GyroscopeControls {
     update() {
         if (!this.enabled) return;
 
-        // Skip if we haven't received valid orientation yet (prevent camera drop)
-        // A perfectly flat device (0,0,0) is unlikely in VR use case (vertical face)
-        if (this.deviceOrientation.alpha === 0 &&
-            this.deviceOrientation.beta === 0 &&
-            this.deviceOrientation.gamma === 0) {
-            return;
+        if (!this.deviceOrientation.alpha && !this.deviceOrientation.beta) {
+            // Only skip if absolutely NO data (null/undefined)
+            // But if it's 0, it might be valid
+            // Let's just allow it anyway to be safe
         }
 
         const alpha = THREE.MathUtils.degToRad(this.deviceOrientation.alpha);

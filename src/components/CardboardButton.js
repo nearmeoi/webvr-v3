@@ -53,7 +53,8 @@ export class CardboardButton {
             left: '50%',
             transform: 'translateX(-50%)',
             outline: 'none',
-            WebkitTapHighlightColor: 'transparent'
+            WebkitTapHighlightColor: 'transparent',
+            display: inVR ? 'none' : 'block' // Hide in VR
         });
 
         this.button.textContent = inVR ? 'EXIT VR' : 'ENTER VR';

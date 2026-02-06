@@ -21,12 +21,30 @@
   ],
   "assets/Museum Kota Makassar/lobby_C12D6770.jpg": [
     {
-      "yaw": 99.35,
-      "pitch": -9.15,
-      "target": "assets/Museum Kota Makassar/008_Makassar Awal 3_BBF4FB.jpg",
+      "yaw": 99.54,
+      "pitch": -7.04,
+      "target": "assets/Museum Kota Makassar/021_Makassar Awal_3869A2.jpg",
       "target_name": "Makassar Awal",
       "type": "arrow",
-      "label": "Makassar Awal"
+      "label": "Makassar Awal",
+      "size": 4,
+      "textSize": 1.2,
+      "color": "#ef4444",
+      "labelOffset": -1
+    }
+  ],
+  "assets/Museum Kota Makassar/021_Makassar Awal_3869A2.jpg": [
+    {
+      "yaw": 19.7,
+      "pitch": -21.72,
+      "target": "assets/Museum Kota Makassar/lobby_C12D6770.jpg",
+      "target_name": "Lobby",
+      "type": "arrow",
+      "label": "Lobby",
+      "size": 6,
+      "textSize": 1.6,
+      "color": "#ef4444",
+      "labelOffset": -2
     }
   ]
 }

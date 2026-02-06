@@ -57,28 +57,47 @@ export class StereoEffect {
             uniform sampler2D tDiffuse;
             uniform vec2 resolution;
             uniform float distortion;
-            uniform float vignetteStrength;
+            uniform float exposure; // Added for brightness control
             
             varying vec2 vUv;
 
-        void main() {
-                // Pass-through without distortion for rectangular view
+            void main() {
                 vec2 uv = vUv;
                 
-                vec4 color = texture2D(tDiffuse, uv);
-
-            // Vignette removed
-
-            gl_FragColor = color;
-        }
+                // Normalizing coordinates to [-1, 1] relative to center
+                vec2 center = vec2(0.5, 0.5);
+                vec2 p = (uv - center) * 2.0;
+                
+                // Barrel distortion math
+                float r2 = dot(p, p);
+                vec2 distortedP = p * (1.0 + distortion * r2);
+                
+                // Convert back to [0, 1] UV space
+                vec2 distortedUv = (distortedP / 2.0) + center;
+                
+                // Sampling with safety check
+                if (distortedUv.x < 0.0 || distortedUv.x > 1.0 || distortedUv.y < 0.0 || distortedUv.y > 1.0) {
+                    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                } else {
+                    vec4 color = texture2D(tDiffuse, distortedUv);
+                    
+                    // Apply exposure and gamma lift (HD High Fidelity)
+                    vec3 res = color.rgb * exposure;
+                    
+                    // Simple Gamma lift for shadows (1.0/1.2 approx)
+                    res = pow(res, vec3(0.8)); // 0.8 power lifts shadows
+                    
+                    gl_FragColor = vec4(res, color.a);
+                }
+            }
         `;
 
         return new THREE.ShaderMaterial({
             uniforms: {
                 tDiffuse: { value: null },
                 resolution: { value: new THREE.Vector2() },
-                distortion: { value: 0.0 }, // Disabled
-                vignetteStrength: { value: 0.0 } // Disabled
+                distortion: { value: 0.12 },
+                exposure: { value: 2.5 } // Extreme boost (250% Brightness)
             },
 
             vertexShader,
@@ -114,7 +133,8 @@ export class StereoEffect {
 
     enable() {
         this.enabled = true;
-        this.renderer.setPixelRatio(1);
+        const dpr = window.devicePixelRatio || 1;
+        this.renderer.setPixelRatio(dpr);
 
         // Save original clear color
         this._originalClearColor = new THREE.Color();
@@ -124,37 +144,41 @@ export class StereoEffect {
         // Create render targets at current size
         this.renderer.getSize(this._size);
 
-        // Ensure we have valid dimensions
+        // Calculate physical pixel dimensions
         const width = Math.max(this._size.width, 100);
         const height = Math.max(this._size.height, 100);
         const halfWidth = Math.floor(width / 2);
 
-        console.log('StereoEffect enabling with size:', halfWidth, 'x', height);
+        // Important: Multiply by DPR for HD quality
+        const renderWidth = halfWidth * dpr;
+        const renderHeight = height * dpr;
+
+        console.log('StereoEffect enabling with HD size:', renderWidth, 'x', renderHeight);
 
         // Dispose existing render targets if any
-        if (this.renderTargetL) {
-            this.renderTargetL.dispose();
-        }
-        if (this.renderTargetR) {
-            this.renderTargetR.dispose();
-        }
+        if (this.renderTargetL) this.renderTargetL.dispose();
+        if (this.renderTargetR) this.renderTargetR.dispose();
 
-        this.renderTargetL = new THREE.WebGLRenderTarget(halfWidth, height, {
+        this.renderTargetL = new THREE.WebGLRenderTarget(renderWidth, renderHeight, {
             minFilter: THREE.LinearFilter,
             magFilter: THREE.LinearFilter,
             format: THREE.RGBAFormat,
             type: THREE.UnsignedByteType,
             depthBuffer: true,
-            stencilBuffer: false
+            stencilBuffer: false,
+            samples: 4,
+            colorSpace: THREE.SRGBColorSpace // Ensure correct color vibrancy
         });
 
-        this.renderTargetR = new THREE.WebGLRenderTarget(halfWidth, height, {
+        this.renderTargetR = new THREE.WebGLRenderTarget(renderWidth, renderHeight, {
             minFilter: THREE.LinearFilter,
             magFilter: THREE.LinearFilter,
             format: THREE.RGBAFormat,
             type: THREE.UnsignedByteType,
             depthBuffer: true,
-            stencilBuffer: false
+            stencilBuffer: false,
+            samples: 4,
+            colorSpace: THREE.SRGBColorSpace // Ensure correct color vibrancy
         });
 
         // Update material uniforms
@@ -194,11 +218,15 @@ export class StereoEffect {
         this.renderer.setSize(width, height);
 
         if (this.enabled) {
+            const dpr = this.renderer.getPixelRatio();
             const halfWidth = Math.floor(width / 2);
-            this.renderTargetL?.setSize(halfWidth, height);
-            this.renderTargetR?.setSize(halfWidth, height);
-            this.quadMeshL.material.uniforms.resolution.value.set(halfWidth, height);
-            this.quadMeshR.material.uniforms.resolution.value.set(halfWidth, height);
+            const renderWidth = halfWidth * dpr;
+            const renderHeight = height * dpr;
+
+            this.renderTargetL?.setSize(renderWidth, renderHeight);
+            this.renderTargetR?.setSize(renderWidth, renderHeight);
+            this.quadMeshL.material.uniforms.resolution.value.set(renderWidth, renderHeight);
+            this.quadMeshR.material.uniforms.resolution.value.set(renderWidth, renderHeight);
         }
     }
 
@@ -216,28 +244,18 @@ export class StereoEffect {
         }
 
         this.renderer.getSize(this._size);
+        const width = this._size.width;
+        const height = this._size.height;
 
         // Ensure valid size
-        if (this._size.width === 0 || this._size.height === 0) {
-            console.warn('StereoEffect: Invalid renderer size');
-            return;
-        }
-
-        // Update stereo cameras from the main camera
-        this.stereo.update(camera);
-
-        const halfWidth = Math.floor(this._size.width / 2);
-
-        // Store current state
-        const currentRenderTarget = this.renderer.getRenderTarget();
-        const currentScissorTest = this.renderer.getScissorTest();
+        if (width === 0 || height === 0) return;
 
         try {
-            // Update stereo cameras from the main camera
-            camera.updateMatrixWorld(); // Ensure camera matrix is up to date
+            // 1. Update stereo cameras from the main camera
+            camera.updateMatrixWorld();
 
             const originalAspect = camera.aspect;
-            camera.aspect = (this._size.width / 2) / this._size.height;
+            camera.aspect = (width / 2) / height;
             camera.updateProjectionMatrix();
 
             this.stereo.update(camera);
@@ -246,30 +264,55 @@ export class StereoEffect {
             camera.aspect = originalAspect;
             camera.updateProjectionMatrix();
 
-            const width = this._size.width;
-            const height = this._size.height;
-
-            this.renderer.setScissorTest(true);
-            this.renderer.setClearColor(0x000000, 1);
-            this.renderer.clearColor(); // Clear color buffer
+            // 2. Render eyes to intermediate textures
+            const currentAutoClear = this.renderer.autoClear;
+            this.renderer.autoClear = true;
 
             // Render Left Eye
-            this.renderer.setScissor(0, 0, width / 2, height);
-            this.renderer.setViewport(0, 0, width / 2, height);
+            this.renderer.setRenderTarget(this.renderTargetL);
             this.renderer.render(scene, this.stereo.cameraL);
 
             // Render Right Eye
-            this.renderer.setScissor(width / 2, 0, width / 2, height);
-            this.renderer.setViewport(width / 2, 0, width / 2, height);
+            this.renderer.setRenderTarget(this.renderTargetR);
             this.renderer.render(scene, this.stereo.cameraR);
 
+            // 3. Final Pass with Distortion to Screen
+            this.renderer.setRenderTarget(null);
+            this.renderer.setScissorTest(true);
+            this.renderer.autoClear = false;
+            this.renderer.clear();
+
+            // Left Quad pass
+            this.renderer.setScissor(0, 0, width / 2, height);
+            this.renderer.setViewport(0, 0, width / 2, height);
+            this.postScene.add(this.quadMeshL);
+            this.renderer.render(this.postScene, this.orthoCamera);
+            this.postScene.remove(this.quadMeshL);
+
+            // Right Quad pass
+            this.renderer.setScissor(width / 2, 0, width / 2, height);
+            this.renderer.setViewport(width / 2, 0, width / 2, height);
+            this.postScene.add(this.quadMeshR);
+            this.renderer.render(this.postScene, this.orthoCamera);
+            this.postScene.remove(this.quadMeshR);
+
+            // 4. Draw narrow center divider line (Physical alignment aid)
+            const dividerWidth = 2;
+            this.renderer.setScissor(width / 2 - dividerWidth / 2, 0, dividerWidth, height);
+            this.renderer.setViewport(width / 2 - dividerWidth / 2, 0, dividerWidth, height);
+            this.renderer.setClearColor(0x000000, 1);
+            this.renderer.clearColor();
+
+            // Cleanup
             this.renderer.setScissorTest(false);
+            this.renderer.autoClear = currentAutoClear;
+            this.renderer.setViewport(0, 0, width, height);
         } catch (e) {
             console.error('StereoEffect render error:', e);
             // Fallback to normal render
             this.renderer.setRenderTarget(null);
             this.renderer.setScissorTest(false);
-            this.renderer.setViewport(0, 0, this._size.width, this._size.height);
+            this.renderer.setViewport(0, 0, width, height);
             this.renderer.render(scene, camera);
         }
     }

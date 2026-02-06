@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { StereoEffect } from './StereoEffect.js';
 import { CardboardButton } from './CardboardButton.js';
 import { CardboardUI } from './CardboardUI.js';
@@ -37,8 +38,17 @@ export class CardboardModeManager {
         );
         this.cardboardUI = new CardboardUI(
             () => this.exit(),
-            () => console.log('Settings clicked')
+            (viewer) => this.onViewerChange(viewer)
         );
+    }
+
+    onViewerChange(viewer) {
+        console.log('Viewer changed to:', viewer);
+        if (this.onInteractionModeChange) {
+            // v2 means button trigger, others use gaze timer for now
+            const mode = (viewer === 'v2') ? 'button' : 'gaze';
+            this.onInteractionModeChange(mode);
+        }
     }
 
     /**
@@ -47,17 +57,28 @@ export class CardboardModeManager {
     async initGyroscope() {
         if (this.gyroscopeEnabled) return true;
 
-        this.gyroscopeControls = new GyroscopeControls(this.camera, this.renderer.domElement);
-        const success = await this.gyroscopeControls.enable();
-
-        if (success) {
-            this.gyroscopeEnabled = true;
-            console.log('Gyroscope controls initialized');
-        } else {
-            console.log('Gyroscope initialization failed, using touch controls');
+        if (this.gyroscopeControls) {
+            this.gyroscopeControls.dispose();
         }
 
-        return success;
+        this.gyroscopeControls = new GyroscopeControls(this.camera, this.renderer.domElement);
+
+        try {
+            console.log('Requesting gyroscope access...');
+            const success = await this.gyroscopeControls.enable();
+
+            if (success) {
+                this.gyroscopeEnabled = true;
+                console.log('Gyroscope controls initialized successfully');
+                return true;
+            } else {
+                console.warn('Gyroscope initialization failed (Permission denied or sensor unavailable)');
+                return false;
+            }
+        } catch (err) {
+            console.error('Error during gyroscope initialization:', err);
+            return false;
+        }
     }
 
     /**
@@ -66,9 +87,38 @@ export class CardboardModeManager {
     async enter() {
         if (this.isCardboardMode) return;
 
+        // Skip onboarding check
+        const skipOnboarding = localStorage.getItem('skip-vr-onboarding') === 'true';
+        if (!skipOnboarding && this.cardboardUI) {
+            // Enter VR mode (Stereo) first so the modal is mirrored correctly
+            await this.actuallyEnterVR();
+            this.cardboardUI.showOnboarding((mode, dontShow) => {
+                if (dontShow) {
+                    localStorage.setItem('skip-vr-onboarding', 'true');
+                    localStorage.setItem('vr-interaction-mode', mode);
+                }
+                if (this.onInteractionModeChange) this.onInteractionModeChange(mode);
+            });
+        } else {
+            // Apply saved preference if skipped
+            const savedMode = localStorage.getItem('vr-interaction-mode') || 'gaze';
+            if (this.onInteractionModeChange) this.onInteractionModeChange(savedMode);
+            await this.actuallyEnterVR();
+        }
+    }
+
+    async actuallyEnterVR() {
+        // Resume AudioContext if suspended (standard Web Audio policy)
+        console.log('Resuming AudioContext if needed...');
+        if (THREE.AudioContext && THREE.AudioContext.state === 'suspended') {
+            await THREE.AudioContext.resume();
+        }
+
         // Initialize gyroscope if needed
+        console.log('Initializing Gyroscope if needed...');
         if (!this.gyroscopeEnabled) {
-            await this.initGyroscope();
+            const gyroSuccess = await this.initGyroscope();
+            console.log('Gyro init success:', gyroSuccess);
         }
 
         // Enable stereo effect
@@ -76,8 +126,10 @@ export class CardboardModeManager {
             this.stereoEffect.enable();
         }
 
-        // Request fullscreen
-        await this.requestFullscreen();
+        // Request fullscreen (Bypass for iOS document level as it's unsupported)
+        if (!/iPhone|iPod/.test(navigator.userAgent)) {
+            await this.requestFullscreen();
+        }
 
         // Set VR FOV
         this.camera.fov = CONFIG.fov.vr;
@@ -85,7 +137,7 @@ export class CardboardModeManager {
 
         this.isCardboardMode = true;
 
-        // Show UI overlay
+        // Show UI overlay (Mirrored HUD)
         if (this.cardboardUI) this.cardboardUI.show();
 
         // Notify listeners
@@ -93,7 +145,20 @@ export class CardboardModeManager {
             this.onModeChange(true);
         }
 
+        // Disable OrbitControls ONLY if Gyroscope is actually working
+        // If gyro is blocked (e.g. HTTP IP access), keep touch enabled as fallback
+        if (this.controls) {
+            this.controls.enabled = this.gyroscopeEnabled ? false : true;
+            console.log('VR Control Mode:', this.gyroscopeEnabled ? 'GYROSCOPE' : 'TOUCH FALLBACK (IP Access)');
+        }
+
         console.log('Entered Cardboard VR mode');
+    }
+
+    update() {
+        if (this.isCardboardMode && this.gyroscopeEnabled && this.gyroscopeControls) {
+            this.gyroscopeControls.update();
+        }
     }
 
     /**
@@ -139,15 +204,6 @@ export class CardboardModeManager {
         }
 
         console.log('Exited Cardboard VR mode');
-    }
-
-    /**
-     * Update gyroscope controls (call in render loop)
-     */
-    update() {
-        if (this.gyroscopeControls && this.gyroscopeEnabled) {
-            this.gyroscopeControls.update();
-        }
     }
 
     /**

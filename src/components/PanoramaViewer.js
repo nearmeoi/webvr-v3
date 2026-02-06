@@ -11,7 +11,8 @@ export class PanoramaViewer {
         this.scene = scene;
         this.onBack = onBack;
         this.camera = camera;
-        this.renderer = renderer; // For WebXR camera access
+        this.renderer = renderer;
+        this.panoramaBrightness = 1.0; // Default multiplier
         this.group = new THREE.Group();
         this.group.position.set(0, 1.6, 0); // Center everything at eye level
         this.scene.add(this.group);
@@ -28,8 +29,12 @@ export class PanoramaViewer {
         const geometry = new THREE.SphereGeometry(50, 64, 32); // Reduced segments as parallax is gone
         geometry.scale(-1, 1, 1);
 
-        // Basic material only
-        this.basicMaterial = new THREE.MeshBasicMaterial({ map: null });
+        // Basic material only - Boosted for maximum brightness
+        this.basicMaterial = new THREE.MeshBasicMaterial({
+            map: null,
+            color: 0xffffff,
+            toneMapped: false // Don't dim it with global tonemapping
+        });
 
         // ControlDock camera following state
         this.dockCenterOffset = 0; // Will be set by setAudioButtonsPosition
@@ -58,6 +63,8 @@ export class PanoramaViewer {
 
         // Initialize Hotspots Data
         this.hotspotsData = {};
+        this.hotspotsGroup = new THREE.Group();
+        this.group.add(this.hotspotsGroup);
         this.fetchHotspots(); // Fetch on init
     }
 
@@ -107,20 +114,18 @@ export class PanoramaViewer {
         this.backBtn.userData.originalScale = new THREE.Vector3(1, 1, 1);
         this.backBtn.userData.targetScale = new THREE.Vector3(1, 1, 1);
         this.backBtn.userData.animProgress = 1;
+        this.backBtn.userData.label = 'Back Button';
+        this.backBtn.userData.activationTime = 2.5; // Longer activation for back button to prevent accidental VR triggers
         this.backBtn.onHoverIn = () => this.backBtn.userData.targetScale.set(1.1, 1.1, 1.1);
         this.backBtn.onHoverOut = () => this.backBtn.userData.targetScale.copy(this.backBtn.userData.originalScale);
         this.backBtn.onClick = () => {
             if (this.onBack) this.onBack();
         };
 
+        this.backBtn.visible = false; // Hidden by default as per user request (menu is "ga guna")
         this.controlDock.add(this.backBtn);
     }
 
-    setAdminMode(isAdmin) {
-        this.isAdminMode = isAdmin;
-        console.log('Admin Mode set to:', isAdmin);
-        // Maybe visual feedback?
-    }
 
     setAudioButtonsPosition(mode, subLocationCount = 0, lastItemTheta = undefined) {
         // Delegate to AudioControls component
@@ -512,70 +517,13 @@ export class PanoramaViewer {
         return this.arrowTexture;
     }
 
-    createHotspotMesh(data) {
-        if (!data) return null;
-
-        // Visual Icon based on type
-        // 'photo' -> Camera icon? 
-        // 'info' -> Info icon?
-        // For now, use simple circles/planes with distinguishable aspect or color
-
-        const geometry = new THREE.PlaneGeometry(3, 3); // Larger plane for the button
-        const material = new THREE.MeshBasicMaterial({
-            map: this.createArrowTexture(),
-            transparent: true,
-            side: THREE.DoubleSide,
-            depthTest: false
-        });
-
-        const mesh = new THREE.Mesh(geometry, material);
-
-        // Position on sphere
-        const radius = 45; // Inside the 50m sphere
-
-        // Convert Pitch/Yaw (deg) to Vector3
-        // Yaw = Rotation around Y (left/right). 0 = Center (-Z)
-        // Pitch = Rotation around X (up/down). 0 = Horizon
-        // Yaw offset: User requested -90deg rotation from the inverted state (180).
-        // 180 - 90 = 90.
-        // Standard formula (0) + 90 = 90.
-        const yawRad = THREE.MathUtils.degToRad((data.yaw || 0) + 90);
-        const pitchRad = THREE.MathUtils.degToRad(data.pitch || 0);
-
-        const x = radius * Math.sin(yawRad) * Math.cos(pitchRad);
-        const y = radius * Math.sin(pitchRad);
-        const z = -radius * Math.cos(yawRad) * Math.cos(pitchRad);
-
-        mesh.position.set(x, y, z);
-        mesh.lookAt(0, 0, 0); // Face center
-
-        mesh.userData.isInteractable = true;
-        mesh.userData.activationTime = data.activationTime || 1.5;
-        this.addPulseAnimation(mesh);
-
-        mesh.onClick = () => {
-            console.log('Clicked hotspot:', data.label, data.type);
-
-            if (data.type === 'scene' || data.target) {
-                this.navigateToScene(data.target);
-            } else if (data.type === 'photo') {
-                this.photoOverlay.show(data.data, () => console.log('Photo closed'));
-            } else if (data.type === 'info') {
-                // Determine rotation for panel to face user
-                const rotationY = Math.atan2(mesh.position.x, mesh.position.z) + Math.PI;
-                // It should appear 2m in front of user in Direction of hotspot.
-                const panelPos = mesh.position.clone().normalize().multiplyScalar(2.5); // 2.5m away
-                this.curvedInfoPanel.show(data.data, panelPos, rotationY);
-            }
-        };
-
-        return mesh;
-    }
 
     addPulseAnimation(mesh) {
-        mesh.userData.originalScale = new THREE.Vector3(1, 1, 1);
-        mesh.userData.targetScale = new THREE.Vector3(1.2, 1.2, 1);
-        mesh.onHoverIn = () => mesh.scale.set(1.3, 1.3, 1.3);
+        mesh.userData.originalScale = new THREE.Vector3().copy(mesh.scale);
+        mesh.onHoverIn = () => {
+            const s = mesh.userData.originalScale;
+            mesh.scale.set(s.x * 1.3, s.y * 1.3, s.z * 1.3);
+        };
         mesh.onHoverOut = () => mesh.scale.copy(mesh.userData.originalScale);
     }
 
@@ -587,29 +535,38 @@ export class PanoramaViewer {
         hotspots.forEach(data => {
             const mesh = this.createHotspotMesh(data);
             if (mesh) {
-                this.group.add(mesh);
+                this.hotspotsGroup.add(mesh);
                 this.currentHotspots.push(mesh);
             }
         });
     }
 
     clearHotspots() {
-        console.log(`Clearing ${this.currentHotspots ? this.currentHotspots.length : 0} hotspots...`);
+        console.log(`Clearing hotspots...`);
         if (this.currentHotspots) {
             this.currentHotspots.forEach(mesh => {
-                this.group.remove(mesh);
-                // DO NOT Dispose texture if it is the shared arrowTexture!
-                // We typically just dispose material if it was unique, but here we share standard arrow material map.
-                // But we created new Material each time in createArrowMesh, so we should dispose material.
-                mesh.material.dispose();
-                mesh.geometry.dispose();
+                // Dispose textures and materials properly
+                if (mesh.material) mesh.material.dispose();
+                // Labels are now siblings in the group, we'll clear the whole group
             });
         }
+
+        // Clear all children from hotspotsGroup (including labels)
+        while (this.hotspotsGroup.children.length > 0) {
+            const child = this.hotspotsGroup.children[0];
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+            this.hotspotsGroup.remove(child);
+        }
+
         this.currentHotspots = [];
-        console.log('Hotspots cleared. Current count:', this.currentHotspots.length);
+        console.log('Hotspots cleared.');
     }
 
     navigateToScene(target) {
+        // Ensure panorama is visible
+        this.group.visible = true;
+
         // target can be an ID (key in SCENE_MAP) or a direct path
         const sceneData = SCENE_MAP[target];
 
@@ -654,11 +611,9 @@ export class PanoramaViewer {
             // So we just pass it through.
 
             const adaptedHotspots = hotspots.map(h => ({
+                ...h, // Preserve all fields (size, color, offset, etc.)
                 type: h.type || 'arrow', // Default to arrow
-                yaw: h.yaw,
-                pitch: h.pitch,
-                target: h.target,
-                label: h.target_name || h.label // Support both
+                label: h.target_name || h.label // Ensure label field exists
             }));
 
             this.renderHotspots(adaptedHotspots);
@@ -720,7 +675,11 @@ export class PanoramaViewer {
                 target: data.target,
                 target_name: data.label || data.target_name,
                 type: data.type || 'arrow',
-                label: data.label || '' // Ensure label is saved
+                label: data.label || '',
+                size: data.size !== undefined ? data.size : 3,
+                textSize: data.textSize !== undefined ? data.textSize : 1.0,
+                color: data.color || null,
+                labelOffset: data.labelOffset !== undefined ? data.labelOffset : 0
             };
         });
 
@@ -757,7 +716,7 @@ export class PanoramaViewer {
 
         const mesh = this.createHotspotMesh(newData);
         if (mesh) {
-            this.group.add(mesh);
+            this.hotspotsGroup.add(mesh);
             this.currentHotspots.push(mesh);
 
             // Select it immediately
@@ -770,27 +729,42 @@ export class PanoramaViewer {
     removeHotspot(data) {
         const mesh = this.currentHotspots.find(m => m.userData.hotspotData === data);
         if (mesh) {
-            this.group.remove(mesh);
+            // Remove the label first if it exists
+            if (mesh.userData.labelSprite) {
+                this.hotspotsGroup.remove(mesh.userData.labelSprite);
+                mesh.userData.labelSprite.geometry.dispose();
+                mesh.userData.labelSprite.material.dispose();
+            }
+
+            this.hotspotsGroup.remove(mesh);
             this.currentHotspots = this.currentHotspots.filter(m => m !== mesh);
             mesh.geometry.dispose();
             mesh.material.dispose();
+            // this.markDirty(); // Assuming markDirty is a method to signal changes for saving
         }
     }
 
     refreshHotspot(data) {
-        // Called when data (like icon type) changes
+        // Called when data (like icon type, size, or color) changes
         // Easiest way: remove and re-create
         const oldMesh = this.currentHotspots.find(m => m.userData.hotspotData === data);
         if (oldMesh) {
-            this.group.remove(oldMesh);
+            // Remove the label first if it exists
+            if (oldMesh.userData.labelSprite) {
+                this.hotspotsGroup.remove(oldMesh.userData.labelSprite);
+                if (oldMesh.userData.labelSprite.geometry) oldMesh.userData.labelSprite.geometry.dispose();
+                if (oldMesh.userData.labelSprite.material) oldMesh.userData.labelSprite.material.dispose();
+            }
+
+            this.hotspotsGroup.remove(oldMesh);
             this.currentHotspots = this.currentHotspots.filter(m => m !== oldMesh);
-            oldMesh.geometry.dispose();
-            oldMesh.material.dispose();
+            if (oldMesh.geometry) oldMesh.geometry.dispose();
+            if (oldMesh.material) oldMesh.material.dispose();
         }
 
         const newMesh = this.createHotspotMesh(data);
         if (newMesh) {
-            this.group.add(newMesh);
+            this.hotspotsGroup.add(newMesh);
             this.currentHotspots.push(newMesh);
         }
     }
@@ -798,58 +772,44 @@ export class PanoramaViewer {
 
 
 
-    updateHotspotVisuals() {
-        // Called by AdminPanel when label changes
-        this.currentHotspots.forEach(mesh => {
-            const data = mesh.userData.hotspotData;
 
-            // Remove old label
-            if (mesh.userData.labelSprite) {
-                mesh.remove(mesh.userData.labelSprite);
-                mesh.userData.labelSprite = null;
-            }
 
-            // Add new label if exists
-            if (data.label) {
-                const labelSprite = this.createLabelSprite(data.label);
-                labelSprite.position.set(0, -2, 0);
-                mesh.add(labelSprite);
-                mesh.userData.labelSprite = labelSprite;
-            }
-        });
-    }
-
-    createLabelSprite(text) {
+    createLabel(text, scale = 1.0) {
         const canvas = document.createElement('canvas');
-        const fontSize = 48; // High res
-        const padding = 20;
+        const baseFontSize = 42;
+        const fontSize = baseFontSize * scale;
+        const padding = 24 * scale;
 
         const ctx = canvas.getContext('2d');
-        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.font = `500 ${fontSize}px 'Roboto', 'Segoe UI', sans-serif`;
         const metrics = ctx.measureText(text);
         const textWidth = metrics.width;
 
         canvas.width = textWidth + padding * 2;
-        canvas.height = fontSize + padding * 2;
+        canvas.height = fontSize + padding * 1.5;
 
-        // Background rounded box
         const w = canvas.width;
         const h = canvas.height;
-        const r = 16;
+        const r = h / 2; // Pill shape
 
-        const ctx2 = canvas.getContext('2d'); // refresh context dimensions
-        ctx2.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        const ctx2 = canvas.getContext('2d');
+
+        // Background pill with blur effect simulation
+        ctx2.fillStyle = 'rgba(0, 0, 0, 0.75)';
         ctx2.beginPath();
         ctx2.roundRect(0, 0, w, h, r);
         ctx2.fill();
 
-        // Border
-        ctx2.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx2.lineWidth = 2;
+        // Subtle border
+        ctx2.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx2.lineWidth = 1.5;
         ctx2.stroke();
 
-        // Text
-        ctx2.font = `bold ${fontSize}px sans-serif`;
+        // Text with slight shadow
+        ctx2.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx2.shadowBlur = 4;
+        ctx2.shadowOffsetY = 1;
+        ctx2.font = `500 ${fontSize}px 'Roboto', 'Segoe UI', sans-serif`;
         ctx2.fillStyle = '#ffffff';
         ctx2.textAlign = 'center';
         ctx2.textBaseline = 'middle';
@@ -858,17 +818,16 @@ export class PanoramaViewer {
         const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
 
-        const material = new THREE.SpriteMaterial({
+        const geometry = new THREE.PlaneGeometry(w * 0.018, h * 0.018);
+        const material = new THREE.MeshBasicMaterial({
             map: texture,
             transparent: true,
-            depthTest: false // Always visible on top? Maybe true for realism
+            side: THREE.DoubleSide,
+            depthTest: false
         });
 
-        const sprite = new THREE.Sprite(material);
-        // Scale down
-        sprite.scale.set(w * 0.02, h * 0.02, 1);
-
-        return sprite;
+        const mesh = new THREE.Mesh(geometry, material);
+        return mesh;
     }
 
     // --- Interaction Override ---
@@ -943,12 +902,20 @@ export class PanoramaViewer {
                 this.isDraggingHotspot = true;
                 this.draggedMesh = hit.object;
 
+                // Record initial state for UNDO
+                const data = this.draggedMesh.userData.hotspotData;
+                this.dragInitialState = {
+                    data: data,
+                    yaw: data.yaw,
+                    pitch: data.pitch
+                };
+
                 // Select it too
                 if (window.adminPanel) {
-                    window.adminPanel.selectHotspot(this.draggedMesh.userData.hotspotData);
+                    window.adminPanel.selectHotspot(data);
                 }
 
-                return true; // Capture event (should disable OrbitControls)
+                return true; // Capture event
             }
         }
         return false;
@@ -963,17 +930,52 @@ export class PanoramaViewer {
             const point = intersects[0].point;
 
             // Update Mesh Position
-            // We want it slightly inside the sphere so it's visible, but createHotspotMesh uses radius 45.
-            // Point is on sphere (radius 50).
             const radius = 45;
             const p = point.clone().normalize().multiplyScalar(radius);
             this.draggedMesh.position.copy(p);
-            this.draggedMesh.lookAt(0, 0, 0);
 
-            // Update Data (for UI feedback if needed)
-            // We commit to data structure on MouseUp usually, or update real-time?
-            // Let's update real-time so UI sliders move? expensive. 
-            // Better to just move visual.
+            // Update orientation to match new position (Rigid Vertical)
+            const forward = p.clone().normalize().negate();
+            const worldUp = new THREE.Vector3(0, 1, 0);
+            const right = new THREE.Vector3().crossVectors(worldUp, forward).normalize();
+            const up = new THREE.Vector3().crossVectors(forward, right).normalize();
+
+            const matrix = new THREE.Matrix4();
+            matrix.makeBasis(right, up, forward);
+            this.draggedMesh.setRotationFromMatrix(matrix);
+
+            // SYNC Label Position
+            if (this.draggedMesh.userData.labelSprite) {
+                const labelMesh = this.draggedMesh.userData.labelSprite;
+                const data = this.draggedMesh.userData.hotspotData;
+                const size = data.size || 3;
+                const textSize = data.textSize || 1.0;
+                const labelOffset = data.labelOffset !== undefined ? data.labelOffset : 0;
+
+                // Calculate current yaw/pitch from current position to position label
+                const currentPos = p.clone().normalize();
+                const currentPitch = Math.asin(currentPos.y);
+                const currentYawRad = Math.atan2(currentPos.x, -currentPos.z);
+
+                // Position label slightly below
+                const baseOffset = size * 0.8 + 2 * textSize;
+                const labelPitchOffset = THREE.MathUtils.degToRad(baseOffset + labelOffset);
+                const labelPitch = currentPitch - labelPitchOffset;
+
+                const lx = radius * Math.sin(currentYawRad) * Math.cos(labelPitch);
+                const ly = radius * Math.sin(labelPitch);
+                const lz = -radius * Math.cos(currentYawRad) * Math.cos(labelPitch);
+
+                labelMesh.position.set(lx, ly, lz);
+
+                // Update Label Rotation (Rigid Vertical)
+                const lForward = new THREE.Vector3().copy(labelMesh.position).normalize().negate();
+                const lRight = new THREE.Vector3().crossVectors(worldUp, lForward).normalize();
+                const lUp = new THREE.Vector3().crossVectors(lForward, lRight).normalize();
+                const lMatrix = new THREE.Matrix4();
+                lMatrix.makeBasis(lRight, lUp, lForward);
+                labelMesh.setRotationFromMatrix(lMatrix);
+            }
         }
         return true;
     }
@@ -983,7 +985,6 @@ export class PanoramaViewer {
             this.isDraggingHotspot = false;
 
             // Sync new position to global data structure
-            // 1. Calculate new yaw/pitch
             const p = this.draggedMesh.position.clone().normalize();
             const pitch = THREE.MathUtils.radToDeg(Math.asin(p.y));
             let standardYaw = THREE.MathUtils.radToDeg(Math.atan2(p.x, -p.z));
@@ -992,16 +993,32 @@ export class PanoramaViewer {
             if (yaw > 180) yaw -= 360;
 
             const data = this.draggedMesh.userData.hotspotData;
-            data.yaw = parseFloat(yaw.toFixed(2));
-            data.pitch = parseFloat(pitch.toFixed(2));
+            const oldYaw = this.dragInitialState.yaw;
+            const oldPitch = this.dragInitialState.pitch;
+            const newYaw = parseFloat(yaw.toFixed(2));
+            const newPitch = parseFloat(pitch.toFixed(2));
 
-            // Notify Panel to update form values
-            if (window.adminPanel) {
-                window.adminPanel.selectHotspot(data); // Re-select to refresh form
-                window.adminPanel.markDirty();
+            // Only push to undo if it actually moved
+            if (oldYaw !== newYaw || oldPitch !== newPitch) {
+                data.yaw = newYaw;
+                data.pitch = newPitch;
+
+                if (window.adminPanel) {
+                    window.adminPanel.pushUndoCommand({
+                        type: 'move',
+                        hotspot: data,
+                        oldYaw: oldYaw,
+                        oldPitch: oldPitch,
+                        newYaw: newYaw,
+                        newPitch: newPitch
+                    });
+                    window.adminPanel.selectHotspot(data);
+                    window.adminPanel.markDirty();
+                }
             }
 
             this.draggedMesh = null;
+            this.dragInitialState = null;
             return true;
         }
         return false;
@@ -1009,104 +1026,202 @@ export class PanoramaViewer {
 
     // --- Icon Generation ---
 
-    createIconTexture(type) {
-        const key = 'icon_' + type;
+    createIconTexture(type, customColor = null) {
+        const key = 'icon_' + type + (customColor || '');
         if (this.textureCache && this.textureCache.has(key)) {
             return this.textureCache.get(key);
         }
 
-        const size = 128;
+        const size = 256; // Higher res for quality
         const canvas = document.createElement('canvas');
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext('2d');
 
-        // Styles
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetY = 2;
+        const cx = size / 2;
+        const cy = size / 2;
+        const radius = size / 2 - 8;
 
-        const drawCircleBase = (color) => {
-            ctx.fillStyle = color;
+        // Modern frosted glass circle with glow
+        const drawBase = (primaryColor, glowColor) => {
+            // Outer glow
+            ctx.shadowColor = glowColor;
+            ctx.shadowBlur = 20;
+
+            // Main circle with gradient
+            const grad = ctx.createRadialGradient(cx, cy * 0.8, 0, cx, cy, radius);
+            grad.addColorStop(0, primaryColor);
+            grad.addColorStop(1, this.adjustColor(primaryColor, -30));
+
             ctx.beginPath();
-            ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
             ctx.fill();
 
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 4;
+            // Inner highlight ring
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius - 6, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Top highlight arc for 3D effect
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius - 20, -Math.PI * 0.8, -Math.PI * 0.2);
             ctx.stroke();
         };
 
-        if (type === 'arrow') {
-            return this.createArrowTexture(); // Use existing method for legacy arrow
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Default colors per type
+        const defaultColors = {
+            arrow: '#4f46e5',
+            scene: '#4f46e5',
+            info: '#0ea5e9',
+            plus: '#10b981',
+            home: '#8b5cf6',
+            photo: '#f59e0b',
+            video: '#ef4444'
+        };
+
+        // Use custom color or default
+        const color = customColor || defaultColors[type] || '#64748b';
+        const glowColor = this.hexToRgba(color, 0.6);
+
+        if (type === 'arrow' || type === 'location' || type === 'scene') {
+            drawBase(color, glowColor);
+            // Modern Location Pin
+            ctx.fillStyle = '#fff';
+            // Pin Body
+            ctx.beginPath();
+            ctx.moveTo(cx, cy + 50); // Bottom tip
+            ctx.bezierCurveTo(cx - 50, cy + 10, cx - 45, cy - 55, cx, cy - 55); // Left curve
+            ctx.bezierCurveTo(cx + 45, cy - 55, cx + 50, cy + 10, cx, cy + 50); // Right curve
+            ctx.fill();
+
+            // Hole in pin
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.beginPath();
+            ctx.arc(cx, cy - 15, 18, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
         } else if (type === 'info') {
-            drawCircleBase('#3b82f6'); // Blue
+            drawBase(color, glowColor);
+            // Clean "i" icon
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 80px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('i', size / 2, size / 2);
-        } else if (type === 'plus') { // New: Add/Plus Icon
-            drawCircleBase('#22c55e'); // Green
-            ctx.fillStyle = '#fff';
-            // Plus Sign
-            const t = 12; // thickness
-            const l = 60; // length
-            ctx.fillRect(size / 2 - l / 2, size / 2 - t / 2, l, t); // Horizontal
-            ctx.fillRect(size / 2 - t / 2, size / 2 - l / 2, t, l); // Vertical
-        } else if (type === 'home') { // New: Home Icon
-            drawCircleBase('#8b5cf6'); // Purple
-            ctx.fillStyle = '#fff';
-            // Simple House
             ctx.beginPath();
-            ctx.moveTo(size / 2, 30);
-            ctx.lineTo(size - 30, 55);
-            ctx.lineTo(30, 55);
-            ctx.fill(); // Roof
-            ctx.fillRect(40, 55, size - 80, 45); // Body
+            ctx.arc(cx, cy - 45, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(cx - 10, cy - 20, 20, 70);
+            // Rounded bottom
+            ctx.beginPath();
+            ctx.arc(cx, cy + 50, 10, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (type === 'plus') {
+            drawBase(color, glowColor);
+            // Plus sign
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 16;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - 40);
+            ctx.lineTo(cx, cy + 40);
+            ctx.moveTo(cx - 40, cy);
+            ctx.lineTo(cx + 40, cy);
+            ctx.stroke();
+        } else if (type === 'home') {
+            drawBase(color, glowColor);
+            // House icon
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            // Roof
+            ctx.moveTo(cx, cy - 50);
+            ctx.lineTo(cx + 55, cy);
+            ctx.lineTo(cx - 55, cy);
+            ctx.closePath();
+            ctx.fill();
+            // Body
+            ctx.fillRect(cx - 40, cy, 80, 50);
+            // Door
+            ctx.fillStyle = this.hexToRgba(color, 0.8);
+            ctx.fillRect(cx - 15, cy + 15, 30, 35);
         } else if (type === 'photo') {
-            drawCircleBase('#f59e0b'); // Amber
-            // Camera Icon
+            drawBase(color, glowColor);
+            // Camera icon
+            ctx.fillStyle = '#fff';
+            // Body
+            ctx.beginPath();
+            ctx.roundRect(cx - 50, cy - 25, 100, 65, 8);
+            ctx.fill();
+            // Lens
+            ctx.fillStyle = this.hexToRgba(color, 0.9);
+            ctx.beginPath();
+            ctx.arc(cx, cy + 5, 25, 0, Math.PI * 2);
+            ctx.fill();
             ctx.fillStyle = '#fff';
             ctx.beginPath();
-            ctx.rect(34, 44, 60, 40); // Body
+            ctx.arc(cx, cy + 5, 15, 0, Math.PI * 2);
             ctx.fill();
-            ctx.beginPath(); // Lens
-            ctx.arc(64, 64, 15, 0, Math.PI * 2);
-            ctx.fillStyle = '#333';
-            ctx.fill();
+            // Viewfinder
             ctx.fillStyle = '#fff';
-            ctx.beginPath(); // Flash
-            ctx.rect(50, 36, 28, 8);
-            ctx.fill();
+            ctx.fillRect(cx - 20, cy - 40, 40, 15);
         } else if (type === 'video') {
-            drawCircleBase('#ef4444'); // Red
-            // Play Triangle
+            drawBase(color, glowColor);
+            // Play triangle
             ctx.fillStyle = '#fff';
             ctx.beginPath();
-            ctx.moveTo(50, 40);
-            ctx.lineTo(90, 64);
-            ctx.lineTo(50, 88);
+            ctx.moveTo(cx - 25, cy - 40);
+            ctx.lineTo(cx + 40, cy);
+            ctx.lineTo(cx - 25, cy + 40);
             ctx.closePath();
             ctx.fill();
         } else {
-            // Default/Fallback
-            drawCircleBase('#64748b');
+            // Default circle
+            drawBase(color, glowColor);
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+            ctx.fill();
         }
 
         const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
         if (!this.textureCache) this.textureCache = new Map();
         this.textureCache.set(key, texture);
         return texture;
+    }
+
+    // Helper to darken/lighten colors
+    adjustColor(hex, amount) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+        const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
+        const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
+        return `rgb(${r},${g},${b})`;
+    }
+
+    // Helper to convert hex to rgba
+    hexToRgba(hex, alpha) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const r = (num >> 16) & 0xFF;
+        const g = (num >> 8) & 0xFF;
+        const b = num & 0xFF;
+        return `rgba(${r},${g},${b},${alpha})`;
     }
 
     createHotspotMesh(data) {
         if (!data) return null;
 
         const type = data.type || 'arrow';
-        const geometry = new THREE.PlaneGeometry(3, 3);
+        const size = data.size || 3;
+        const color = data.color || null;
+
+        const geometry = new THREE.PlaneGeometry(size, size);
         const material = new THREE.MeshBasicMaterial({
-            map: this.createIconTexture(type),
+            map: this.createIconTexture(type, color),
             transparent: true,
             side: THREE.DoubleSide,
             depthTest: false
@@ -1124,17 +1239,53 @@ export class PanoramaViewer {
         const z = -radius * Math.cos(yawRad) * Math.cos(pitchRad);
 
         mesh.position.set(x, y, z);
-        mesh.lookAt(0, 0, 0);
+
+        // --- Rigid Vertical Orientation Fix ---
+        // We construct a rotation matrix that faces the center (Forward)
+        // but keeps the Right vector horizontal (parallel to XZ plane).
+        const forward = new THREE.Vector3().copy(mesh.position).normalize().negate();
+        const worldUp = new THREE.Vector3(0, 1, 0);
+        const right = new THREE.Vector3().crossVectors(worldUp, forward).normalize();
+        const up = new THREE.Vector3().crossVectors(forward, right).normalize();
+
+        const matrix = new THREE.Matrix4();
+        // PlaneGeometry faces +Z, so we map our basis: X=right, Y=up, Z=forward (looking at center)
+        matrix.makeBasis(right, up, forward);
+        mesh.setRotationFromMatrix(matrix);
 
         mesh.userData.isInteractable = true;
+        mesh.userData.label = data.label || 'Hotspot'; // For GAZE logs
         mesh.userData.hotspotData = data; // Link back to data object
 
-        // Add Label Sprite
+        // Add Label Mesh - position independently to avoid tilt
         if (data.label) {
-            const labelSprite = this.createLabelSprite(data.label);
-            labelSprite.position.set(0, -2, 0); // Position below icon
-            mesh.add(labelSprite);
-            mesh.userData.labelSprite = labelSprite;
+            const textSize = data.textSize || 1.0;
+            const labelOffset = data.labelOffset !== undefined ? data.labelOffset : 0;
+            const labelMesh = this.createLabel(data.label, textSize);
+
+            // Calculate label position (slightly below the hotspot)
+            const labelRadius = radius;
+            // Base offset is dynamic: size*0.8 + 2*textSize. Then add the custom offset.
+            const baseOffset = size * 0.8 + 2 * textSize;
+            const finalOffsetDeg = baseOffset + labelOffset;
+
+            const labelPitchRad = THREE.MathUtils.degToRad((data.pitch || 0) - finalOffsetDeg); // Offset pitch
+            const labelX = labelRadius * Math.sin(yawRad) * Math.cos(labelPitchRad);
+            const labelY = labelRadius * Math.sin(labelPitchRad);
+            const labelZ = -labelRadius * Math.cos(yawRad) * Math.cos(labelPitchRad);
+
+            labelMesh.position.set(labelX, labelY, labelZ);
+
+            // Rotation Match (Vertical Lock)
+            const lForward = new THREE.Vector3().copy(labelMesh.position).normalize().negate();
+            const lRight = new THREE.Vector3().crossVectors(worldUp, lForward).normalize();
+            const lUp = new THREE.Vector3().crossVectors(lForward, lRight).normalize();
+            const lMatrix = new THREE.Matrix4();
+            lMatrix.makeBasis(lRight, lUp, lForward);
+            labelMesh.setRotationFromMatrix(lMatrix);
+
+            this.hotspotsGroup.add(labelMesh);
+            mesh.userData.labelSprite = labelMesh;
         }
 
         this.addPulseAnimation(mesh);
@@ -1230,7 +1381,7 @@ export class PanoramaViewer {
 
     setBackButtonVisibility(visible) {
         if (this.backBtn) {
-            this.backBtn.visible = visible;
+            this.backBtn.visible = false; // Forced false - Menu is gone
         }
     }
 
@@ -1244,7 +1395,14 @@ export class PanoramaViewer {
     }
 
     setVRMode(isVR) {
-        this.isVRMode = isVR;
+        this.isVR = isVR;
+
+        // Boost brightness significantly in VR mode to ensure clarity
+        this.panoramaBrightness = isVR ? 1.5 : 1.0;
+        if (this.basicMaterial) {
+            this.basicMaterial.color.setScalar(this.panoramaBrightness);
+        }
+
         // In VR, we might want to hide the floating back button 
         // because the SubMenu handles it, or use Gaze.
         // For now, let's keep it simple.
@@ -1327,8 +1485,6 @@ export class PanoramaViewer {
 
         // Animate all buttons
         animateObject(this.backBtn);
-        animateObject(this.playBtn);
-        animateObject(this.muteBtn);
 
         // Animate hotspots
         if (this.currentHotspots) {
