@@ -8,22 +8,9 @@ import { CardboardModeManager } from './components/CardboardModeManager.js';
 import { isIOS, isWebXRSupported, isMobile, isCardboardForced } from './utils/deviceDetection.js';
 import { CONFIG } from './config.js';
 import { TOUR_DATA } from './data/tourData.js';
-import { WebVRHelper } from './utils/WebVRHelper.js';
 
-// Initialize WebVR Polyfill for iOS and other unsupported browsers
-// This provides Cardboard-style VR using device orientation
-import WebVRPolyfill from 'webvr-polyfill';
-const polyfill = new WebVRPolyfill({
-    // Cardboard UI settings
-    PROVIDE_MOBILE_VRDISPLAY: true,
-    // Use cardboard distortion
-    CARDBOARD_UI_DISABLED: false,
-    // Buffer scale for quality
-    BUFFER_SCALE: 0.75,
-    // Rotate instruction overlay
-    ROTATE_INSTRUCTIONS_DISABLED: false
-});
-console.log('WebVR Polyfill initialized:', polyfill);
+// Note: WebVR polyfill was removed due to canvas context conflicts with Three.js
+// Using custom CardboardModeManager instead for stereo rendering
 
 class App {
     constructor() {
@@ -126,32 +113,11 @@ class App {
 
         if (!needsFallback) return;
 
-        console.log('Mobile VR Fallback enabled');
+        console.log('Mobile VR Fallback enabled - using custom stereo effect');
 
-        // Try to use WebVR polyfill first (better iOS fullscreen support)
-        this.webVRHelper = new WebVRHelper(this.renderer, this.camera, this.scene);
-        this.webVRHelper.init().then(success => {
-            if (success) {
-                console.log('WebVR polyfill initialized successfully!');
-                this.webVRHelper.createButton();
-
-                this.webVRHelper.onEnterVR = () => {
-                    this.isVRMode = true;
-                    if (this.panoramaViewer) this.panoramaViewer.setVRMode(true);
-                };
-
-                this.webVRHelper.onExitVR = () => {
-                    this.isVRMode = false;
-                    if (this.panoramaViewer) this.panoramaViewer.setVRMode(false);
-                };
-            } else {
-                console.log('WebVR not available, using custom stereo effect');
-                this.initCustomCardboard();
-            }
-        }).catch(e => {
-            console.error('WebVR init error:', e);
-            this.initCustomCardboard();
-        });
+        // Note: WebVR polyfill creates canvas context conflicts with Three.js
+        // So we use our custom CardboardModeManager instead
+        this.initCustomCardboard();
     }
 
     initCustomCardboard() {
