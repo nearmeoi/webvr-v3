@@ -136,6 +136,9 @@ export class VROverlay {
     }
 
     renderLandscapeInstruction() {
+        // Record initial height to detect toolbar hide
+        this.initialViewportHeight = window.innerHeight;
+
         this.overlay.innerHTML = `
             <div class="vr-overlay-content landscape">
                 <div class="vr-overlay-icon-corner">
@@ -152,15 +155,70 @@ export class VROverlay {
                     </svg>
                 </div>
                 <p class="vr-overlay-instruction">Geser ke atas untuk masuk<br><strong>Fullscreen Mode</strong></p>
-                <button id="vr-step2-enter" class="vr-overlay-btn primary">MASUK VR</button>
             </div>
         `;
 
-        // Bind enter button
-        this.overlay.querySelector('#vr-step2-enter').addEventListener('click', () => {
-            this.hide();
-            if (this.onEnterVR) this.onEnterVR();
-        });
+        // Start watching for fullscreen (toolbar hide)
+        this.startFullscreenWatch();
+    }
+
+    // Detect when Safari toolbar is hidden (viewport height increases)
+    startFullscreenWatch() {
+        this.fullscreenHandler = () => {
+            const currentHeight = window.innerHeight;
+            const heightDiff = currentHeight - this.initialViewportHeight;
+
+            // If height increased by more than 30px, toolbar is likely hidden
+            // Also check if we're close to screen.availHeight (minus some buffer)
+            const isFullscreen = heightDiff > 30 ||
+                (window.innerHeight >= screen.availHeight - 50);
+
+            console.log(`Viewport: ${this.initialViewportHeight} -> ${currentHeight}, diff: ${heightDiff}, fullscreen: ${isFullscreen}`);
+
+            if (isFullscreen && this.currentStep === 2 && this.isLandscape) {
+                console.log('Fullscreen detected! Auto-entering VR...');
+                this.stopFullscreenWatch();
+                this.hide();
+                if (this.onEnterVR) this.onEnterVR();
+            }
+        };
+
+        // Check on resize (Safari fires this when toolbar hides)
+        window.addEventListener('resize', this.fullscreenHandler);
+
+        // Also use scroll to trigger the toolbar hide
+        window.addEventListener('scroll', this.fullscreenHandler);
+
+        // Touch events for swipe detection
+        this.touchStartY = 0;
+        this.touchHandler = (e) => {
+            if (e.type === 'touchstart') {
+                this.touchStartY = e.touches[0].clientY;
+            } else if (e.type === 'touchend') {
+                const touchEndY = e.changedTouches[0].clientY;
+                const swipeUp = this.touchStartY - touchEndY > 50;
+                if (swipeUp) {
+                    // Give Safari a moment to hide the toolbar
+                    setTimeout(() => this.fullscreenHandler(), 300);
+                }
+            }
+        };
+
+        this.overlay.addEventListener('touchstart', this.touchHandler);
+        this.overlay.addEventListener('touchend', this.touchHandler);
+    }
+
+    stopFullscreenWatch() {
+        if (this.fullscreenHandler) {
+            window.removeEventListener('resize', this.fullscreenHandler);
+            window.removeEventListener('scroll', this.fullscreenHandler);
+            this.fullscreenHandler = null;
+        }
+        if (this.touchHandler && this.overlay) {
+            this.overlay.removeEventListener('touchstart', this.touchHandler);
+            this.overlay.removeEventListener('touchend', this.touchHandler);
+            this.touchHandler = null;
+        }
     }
 
     checkOrientation() {
@@ -174,6 +232,7 @@ export class VROverlay {
 
             // Only re-render if orientation changed
             if (wasLandscape !== this.isLandscape && this.currentStep === 2) {
+                this.stopFullscreenWatch(); // Stop old watcher
                 this.renderStep2();
             }
         };
@@ -188,6 +247,7 @@ export class VROverlay {
             window.removeEventListener('orientationchange', this.orientationHandler);
             this.orientationHandler = null;
         }
+        this.stopFullscreenWatch();
     }
 
     dispose() {
@@ -197,3 +257,4 @@ export class VROverlay {
         }
     }
 }
+
