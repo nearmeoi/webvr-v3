@@ -9,6 +9,21 @@ import { isIOS, isWebXRSupported, isMobile, isCardboardForced } from './utils/de
 import { CONFIG } from './config.js';
 import { TOUR_DATA } from './data/tourData.js';
 
+// Initialize WebVR Polyfill for iOS and other unsupported browsers
+// This provides Cardboard-style VR using device orientation
+import WebVRPolyfill from 'webvr-polyfill';
+const polyfill = new WebVRPolyfill({
+    // Cardboard UI settings
+    PROVIDE_MOBILE_VRDISPLAY: true,
+    // Use cardboard distortion
+    CARDBOARD_UI_DISABLED: false,
+    // Buffer scale for quality
+    BUFFER_SCALE: 0.75,
+    // Rotate instruction overlay
+    ROTATE_INSTRUCTIONS_DISABLED: false
+});
+console.log('WebVR Polyfill initialized:', polyfill);
+
 class App {
     constructor() {
         // Device detection
@@ -128,6 +143,9 @@ class App {
                 if (!isVR && this.currentState === 'cinematic-tour') {
                     this.panoramaViewer.setBackButtonVisibility(false);
                 }
+            }
+            if (this.cardboardButton) {
+                this.cardboardButton.setVRState(isVR);
             }
         };
 

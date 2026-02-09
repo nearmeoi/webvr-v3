@@ -1283,6 +1283,7 @@ export class PanoramaViewer {
             const lMatrix = new THREE.Matrix4();
             lMatrix.makeBasis(lRight, lUp, lForward);
             labelMesh.setRotationFromMatrix(lMatrix);
+            labelMesh.renderOrder = 9999;
 
             this.hotspotsGroup.add(labelMesh);
             mesh.userData.labelSprite = labelMesh;
@@ -1307,6 +1308,7 @@ export class PanoramaViewer {
             }
         };
 
+        mesh.renderOrder = 9999;
         return mesh;
     }
     loadFallbackTexture(name) {

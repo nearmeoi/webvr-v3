@@ -122,6 +122,31 @@ export class CardboardButton {
         if (this.onExitVR) this.onExitVR();
     }
 
+
+    /**
+ * Updates internal state if VR mode is triggered externally (e.g. from landing screen)
+ */
+    setVRState(isVR) {
+        if (this.isInVR === isVR) return;
+        this.isInVR = isVR;
+        this.updateButtonStyle(isVR);
+
+        // Also try full screen logic if entering
+        if (isVR) {
+            // Try to hide address bar on iOS
+            window.scrollTo(0, 1);
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed'; // Prevents bounce
+            document.body.style.width = '100%';
+            document.body.style.height = '100%';
+        } else {
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.height = '';
+        }
+    }
+
     dispose() {
         if (this.button && this.button.parentNode) {
             this.button.parentNode.removeChild(this.button);

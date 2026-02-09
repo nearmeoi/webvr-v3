@@ -4,6 +4,7 @@ import { CardboardButton } from './CardboardButton.js';
 import { CardboardUI } from './CardboardUI.js';
 import { GyroscopeControls } from './GyroscopeControls.js';
 import { CONFIG } from '../config.js';
+import { iOSFullscreenHelper } from '../utils/iOSFullscreenHelper.js';
 
 /**
  * CardboardModeManager - Handles iOS Cardboard/Stereo VR mode
@@ -22,6 +23,9 @@ export class CardboardModeManager {
 
         this.isCardboardMode = false;
         this.gyroscopeEnabled = false;
+
+        // iOS fullscreen helper
+        this.iOSFullscreen = new iOSFullscreenHelper();
 
         // Callbacks for component sync
         this.onModeChange = null;
@@ -126,8 +130,16 @@ export class CardboardModeManager {
             this.stereoEffect.enable();
         }
 
-        // Request fullscreen (Bypass for iOS document level as it's unsupported)
-        if (!/iPhone|iPod/.test(navigator.userAgent)) {
+        // Request fullscreen
+        // Use iOS video hack for iPhone/iPad, standard API for others
+        const isIOSDevice = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        if (isIOSDevice && this.iOSFullscreen) {
+            console.log('Using iOS video fullscreen hack...');
+            const success = await this.iOSFullscreen.enterFullscreen();
+            console.log('iOS fullscreen result:', success);
+        } else {
             await this.requestFullscreen();
         }
 
@@ -156,7 +168,9 @@ export class CardboardModeManager {
     }
 
     update() {
-        if (this.isCardboardMode && this.gyroscopeEnabled && this.gyroscopeControls) {
+        // Only update GyroscopeControls if it has actually received valid data
+        // Otherwise, it overwrites the camera quaternion with zeros, blocking OrbitControls
+        if (this.isCardboardMode && this.gyroscopeEnabled && this.gyroscopeControls && this.gyroscopeControls.gotAnyData) {
             this.gyroscopeControls.update();
         }
     }

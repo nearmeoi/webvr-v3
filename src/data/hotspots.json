@@ -9,42 +9,255 @@
       "label": "Masuk Museum"
     }
   ],
-  "assets/Museum Kota Makassar/002_Makassar Awal 8_9C4AB9.jpg": [
-    {
-      "yaw": 70.46,
-      "pitch": -24.75,
-      "target": "assets/Museum Kota Makassar/004_Ruang Sidang_7CF442.jpg",
-      "target_name": "Ruangan 1",
-      "type": "arrow",
-      "label": "Ruangan 1"
-    }
-  ],
   "assets/Museum Kota Makassar/lobby_C12D6770.jpg": [
     {
-      "yaw": 99.54,
-      "pitch": -7.04,
+      "yaw": 99.85,
+      "pitch": -8.88,
       "target": "assets/Museum Kota Makassar/021_Makassar Awal_3869A2.jpg",
       "target_name": "Makassar Awal",
       "type": "arrow",
-      "label": "Makassar Awal",
-      "size": 4,
-      "textSize": 1.2,
-      "color": "#ef4444",
-      "labelOffset": -1
+      "label": "Makassar Awal"
+    },
+    {
+      "yaw": 22.68,
+      "pitch": -26.78,
+      "target": "assets/Museum Kota Makassar/030_Halaman Depan_E6D21F.jpg",
+      "target_name": "Kembali",
+      "type": "arrow",
+      "label": "Kembali"
+    },
+    {
+      "yaw": 141.33,
+      "pitch": -1.96,
+      "target": "assets/Museum Kota Makassar/011_Masa Kompeni Kolonial_E02485.jpg",
+      "target_name": "Masa Kompeni Kolonial",
+      "type": "arrow",
+      "label": "Masa Kompeni Kolonial"
+    },
+    {
+      "yaw": 156.24,
+      "pitch": 0.62,
+      "target": "assets/Museum Kota Makassar/044_Musik Tradisional_3CA97A.jpg",
+      "target_name": "Musik Tradisional",
+      "type": "arrow",
+      "label": "Musik Tradisional"
+    },
+    {
+      "yaw": -158.09,
+      "pitch": 1.08,
+      "target": "assets/Museum Kota Makassar/037_Ruang Tengah 1_28DF42.jpg",
+      "target_name": "Ruang Tengah",
+      "type": "arrow",
+      "label": "Ruang Tengah"
+    },
+    {
+      "yaw": -115.29,
+      "pitch": -0.85,
+      "target": "assets/Museum Kota Makassar/069_Perpustakaan Mini_6C66EA.jpg",
+      "target_name": "Perpustakaan Mini",
+      "type": "arrow",
+      "label": "Perpustakaan Mini"
+    },
+    {
+      "yaw": -96.58,
+      "pitch": -1.06,
+      "target": "assets/Museum Kota Makassar/022_Kultural Kota Makassar_CA96EE.jpg",
+      "target_name": "Kultural Kota Makassar",
+      "type": "arrow",
+      "label": "Kultural Kota Makassar"
+    },
+    {
+      "yaw": -58.88,
+      "pitch": -3.61,
+      "target": "assets/Museum Kota Makassar/034_Ruang Masa Depan_C3AA69.jpg",
+      "target_name": "Ruangan Masa Depan",
+      "type": "arrow",
+      "label": "Ruangan Masa Depan"
     }
   ],
   "assets/Museum Kota Makassar/021_Makassar Awal_3869A2.jpg": [
     {
-      "yaw": 19.7,
-      "pitch": -21.72,
+      "yaw": 17.06,
+      "pitch": -21.68,
       "target": "assets/Museum Kota Makassar/lobby_C12D6770.jpg",
-      "target_name": "Lobby",
+      "target_name": "Ke Lobby",
       "type": "arrow",
-      "label": "Lobby",
-      "size": 6,
-      "textSize": 1.6,
-      "color": "#ef4444",
-      "labelOffset": -2
+      "label": "Ke Lobby"
+    },
+    {
+      "yaw": -73.98,
+      "pitch": -22.7,
+      "target": "assets/Museum Kota Makassar/011_Masa Kompeni Kolonial_E02485.jpg",
+      "target_name": "Masa Kompeni Kolonial",
+      "type": "arrow",
+      "label": "Masa Kompeni Kolonial"
+    },
+    {
+      "yaw": 107.69,
+      "pitch": 2.82,
+      "target": "assets/Museum Kota Makassar/024_Makassar Awal 2_0DCE43.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": 142.84,
+      "pitch": -6.96,
+      "target": "assets/Museum Kota Makassar/008_Makassar Awal 3_BBF4FB.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": 173.67,
+      "pitch": -0.32,
+      "target": "assets/Museum Kota Makassar/020_Makassar Awal 4_0AD54E.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": -145.18,
+      "pitch": -6.2,
+      "target": "assets/Museum Kota Makassar/048_Makassar Awal 5_6DC48E.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": -127.22,
+      "pitch": -6.93,
+      "target": "assets/Museum Kota Makassar/040_Makassar Awal 6_5A7D4D.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": -99.06,
+      "pitch": -7.99,
+      "target": "assets/Museum Kota Makassar/055_Makassar Awal 7_C4C995.jpg",
+      "type": "info",
+      "label": ""
+    }
+  ],
+  "assets/Museum Kota Makassar/009_Masa Kompeni Kolonial_AFE1CF.jpg": [],
+  "assets/Museum Kota Makassar/011_Masa Kompeni Kolonial_E02485.jpg": [
+    {
+      "yaw": -36.37,
+      "pitch": -14.88,
+      "target": "assets/Museum Kota Makassar/lobby_C12D6770.jpg",
+      "target_name": "Ke Lobby",
+      "type": "arrow",
+      "label": "Ke Lobby"
+    },
+    {
+      "yaw": -5.94,
+      "pitch": -21.26,
+      "target": "assets/Museum Kota Makassar/021_Makassar Awal_3869A2.jpg",
+      "target_name": "Makassar Awal",
+      "type": "arrow",
+      "label": "Makassar Awal"
+    },
+    {
+      "yaw": -153.33,
+      "pitch": -10.23,
+      "target": "assets/Museum Kota Makassar/050_Orde Lama dan Orde Baru_B1BBE1.jpg",
+      "target_name": "Orde Lama dan Orde Baru",
+      "type": "arrow",
+      "label": "Orde Lama dan Orde Baru"
+    }
+  ],
+  "assets/Museum Kota Makassar/055_Makassar Awal 7_C4C995.jpg": [
+    {
+      "yaw": -29.26,
+      "pitch": -27.6,
+      "target": "assets/Museum Kota Makassar/021_Makassar Awal_3869A2.jpg",
+      "target_name": "Kembali",
+      "type": "arrow",
+      "label": "Kembali"
+    },
+    {
+      "yaw": 113.75,
+      "pitch": -8.63,
+      "target": "assets/Museum Kota Makassar/040_Makassar Awal 6_5A7D4D.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": 178.07,
+      "pitch": -31.07,
+      "target": "",
+      "target_name": "Sultan Hasanuddin",
+      "type": "info",
+      "label": "Sultan Hasanuddin"
+    },
+    {
+      "yaw": 103.77,
+      "pitch": -5.19,
+      "target": "assets/Museum Kota Makassar/048_Makassar Awal 5_6DC48E.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": 62.67,
+      "pitch": -0.82,
+      "target": "assets/Museum Kota Makassar/020_Makassar Awal 4_0AD54E.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": 38.89,
+      "pitch": -3.91,
+      "target": "assets/Museum Kota Makassar/008_Makassar Awal 3_BBF4FB.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": 10.72,
+      "pitch": -1.75,
+      "target": "assets/Museum Kota Makassar/024_Makassar Awal 2_0DCE43.jpg",
+      "type": "info",
+      "label": ""
+    }
+  ],
+  "assets/Museum Kota Makassar/040_Makassar Awal 6_5A7D4D.jpg": [
+    {
+      "yaw": -64.53,
+      "pitch": -12.55,
+      "target": "assets/Museum Kota Makassar/021_Makassar Awal_3869A2.jpg",
+      "target_name": "Kembali",
+      "type": "arrow",
+      "label": "Kembali"
+    },
+    {
+      "yaw": -123.46,
+      "pitch": -14.03,
+      "target": "assets/Museum Kota Makassar/055_Makassar Awal 7_C4C995.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": 108.02,
+      "pitch": -8.04,
+      "target": "assets/Museum Kota Makassar/048_Makassar Awal 5_6DC48E.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": 14.53,
+      "pitch": -3.45,
+      "target": "assets/Museum Kota Makassar/008_Makassar Awal 3_BBF4FB.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": 39.89,
+      "pitch": 0.77,
+      "target": "assets/Museum Kota Makassar/020_Makassar Awal 4_0AD54E.jpg",
+      "type": "info",
+      "label": ""
+    },
+    {
+      "yaw": -17.91,
+      "pitch": -2.71,
+      "target": "assets/Museum Kota Makassar/024_Makassar Awal 2_0DCE43.jpg",
+      "type": "info",
+      "label": ""
     }
   ]
 }
