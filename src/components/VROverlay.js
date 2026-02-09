@@ -1,13 +1,16 @@
 /**
  * VROverlay.js
- * Manages the Pre-VR instruction screen.
- * Shows "Rotate Phone" instruction and "ENTER VR" button.
- * This ensures we have a valid user gesture to trigger fullscreen and VR session.
+ * Multi-step VR instruction overlay like Google Cardboard.
+ * Step 1: Ask for VR mode permission
+ * Step 2: Detect orientation - show "Rotate to Landscape" or "Scroll down" based on orientation
  */
 export class VROverlay {
     constructor(onEnterVR) {
         this.onEnterVR = onEnterVR;
         this.overlay = null;
+        this.currentStep = 0;
+        this.isLandscape = false;
+        this.orientationHandler = null;
         this.createOverlay();
     }
 
@@ -15,67 +18,180 @@ export class VROverlay {
         this.overlay = document.createElement('div');
         this.overlay.id = 'vr-instruction-overlay';
 
-        // Structure:
-        // - Icon (Rotate Phone / VR Headset)
-        // - Text Instructions
-        // - Enter Button
-        this.overlay.innerHTML = `
-            <div class="vr-overlay-content">
-                <div class="vr-overlay-icon">
-                    <svg viewBox="0 0 24 24" fill="white" width="64" height="64">
-                         <path d="M23.25 12.77l-2.57-2.57-1.41 1.41 2.57 2.57-2.57 2.57 1.41 1.41 2.57-2.57c.78-.78.78-2.05 0-2.82zM.75 12.77l2.57 2.57 1.41-1.41-2.57-2.57 2.57-2.57-1.41-1.41-2.57 2.57c-.78.78-.78 2.05 0 2.82zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-                    </svg>
-                </div>
-                <h2>Enter VR Mode</h2>
-                <p>1. Rotate your phone to landscape.</p>
-                <p>2. Place phone into Cardboard viewer.</p>
-                <button id="vr-overlay-enter-btn">ENTER VR</button>
-                <button id="vr-overlay-cancel-btn">CANCEL</button>
-            </div>
-        `;
-
-        // Styles are in style.css, but we set base styles here to ensure visibility
+        // White background, Google Cardboard style
         Object.assign(this.overlay.style, {
             position: 'fixed',
             top: '0',
             left: '0',
             width: '100%',
             height: '100%',
-            backgroundColor: 'rgba(0,0,0,0.9)',
+            backgroundColor: '#ffffff',
             zIndex: '10000',
             display: 'none',
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
-            color: 'white',
-            fontFamily: 'sans-serif'
+            color: '#333',
+            fontFamily: "'Roboto', sans-serif"
         });
 
         document.body.appendChild(this.overlay);
-
-        // Bind events
-        const enterBtn = this.overlay.querySelector('#vr-overlay-enter-btn');
-        const cancelBtn = this.overlay.querySelector('#vr-overlay-cancel-btn');
-
-        enterBtn.addEventListener('click', () => {
-            this.hide();
-            if (this.onEnterVR) this.onEnterVR();
-        });
-
-        cancelBtn.addEventListener('click', () => {
-            this.hide();
-        });
     }
 
     show() {
         this.overlay.style.display = 'flex';
+        this.currentStep = 1;
+        this.renderStep1();
     }
 
     hide() {
         this.overlay.style.display = 'none';
+        this.stopOrientationWatch();
+    }
+
+    // Step 1: VR Mode Permission
+    renderStep1() {
+        this.overlay.innerHTML = `
+            <div class="vr-overlay-content">
+                <div class="vr-overlay-icon">
+                    <svg viewBox="0 0 24 24" fill="#EA4335" width="80" height="80">
+                        <path d="M20.74 6H3.21C2.55 6 2 6.57 2 7.28v10.44c0 .7.55 1.28 1.23 1.28h4.79c.52 0 .98-.34 1.14-.84l.99-3.11c.23-.71.88-1.19 1.62-1.19h.46c.74 0 1.39.48 1.62 1.19l.99 3.11c.16.5.63.84 1.14.84h4.79c.68 0 1.23-.57 1.23-1.28V7.28c0-.71-.55-1.28-1.26-1.28zM7.5 14.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm9 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
+                    </svg>
+                    <span class="google-cardboard-text">Google<br>Cardboard</span>
+                </div>
+                <p class="vr-overlay-desc">Untuk melanjutkan ke mode VR, izinkan akses sensor gyroscope dan accelerometer.</p>
+                <button id="vr-step1-continue" class="vr-overlay-btn primary">IZINKAN</button>
+                <button id="vr-step1-cancel" class="vr-overlay-btn secondary">BATAL</button>
+            </div>
+        `;
+
+        // Bind events
+        this.overlay.querySelector('#vr-step1-continue').addEventListener('click', () => {
+            this.requestSensorPermission();
+        });
+        this.overlay.querySelector('#vr-step1-cancel').addEventListener('click', () => {
+            this.hide();
+        });
+    }
+
+    async requestSensorPermission() {
+        // Request DeviceMotion/Orientation permission (iOS 13+)
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+            try {
+                const response = await DeviceMotionEvent.requestPermission();
+                if (response === 'granted') {
+                    console.log('DeviceMotion permission granted');
+                    this.goToStep2();
+                } else {
+                    alert('Izin sensor ditolak. Mode VR membutuhkan akses sensor.');
+                }
+            } catch (e) {
+                console.log('DeviceMotion permission error:', e);
+                // Fallback - proceed anyway (non-iOS or older iOS)
+                this.goToStep2();
+            }
+        } else {
+            // Not iOS 13+ or desktop - proceed directly
+            console.log('DeviceMotion permission not required');
+            this.goToStep2();
+        }
+    }
+
+    // Step 2: Orientation Check
+    goToStep2() {
+        this.currentStep = 2;
+        this.renderStep2();
+        this.startOrientationWatch();
+    }
+
+    renderStep2() {
+        this.checkOrientation();
+
+        if (this.isLandscape) {
+            this.renderLandscapeInstruction();
+        } else {
+            this.renderPortraitInstruction();
+        }
+    }
+
+    renderPortraitInstruction() {
+        this.overlay.innerHTML = `
+            <div class="vr-overlay-content">
+                <div class="vr-overlay-icon">
+                    <svg viewBox="0 0 24 24" fill="#EA4335" width="64" height="64" style="position: absolute; top: 20px; right: 20px;">
+                        <path d="M20.74 6H3.21C2.55 6 2 6.57 2 7.28v10.44c0 .7.55 1.28 1.23 1.28h4.79c.52 0 .98-.34 1.14-.84l.99-3.11c.23-.71.88-1.19 1.62-1.19h.46c.74 0 1.39.48 1.62 1.19l.99 3.11c.16.5.63.84 1.14.84h4.79c.68 0 1.23-.57 1.23-1.28V7.28c0-.71-.55-1.28-1.26-1.28zM7.5 14.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm9 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
+                    </svg>
+                    <span class="google-cardboard-label">Google Cardboard</span>
+                </div>
+                <div class="rotate-icon">
+                    <svg viewBox="0 0 100 100" width="100" height="100">
+                        <rect x="25" y="10" width="50" height="80" rx="5" fill="none" stroke="#333" stroke-width="3"/>
+                        <path d="M50 5 L60 15 L55 15 L55 25 L45 25 L45 15 L40 15 Z" fill="#333"/>
+                        <text x="50" y="60" text-anchor="middle" font-size="10" fill="#666">90°</text>
+                    </svg>
+                </div>
+                <p class="vr-overlay-instruction">Putar ponsel ke mode<br><strong>Landscape</strong></p>
+            </div>
+        `;
+    }
+
+    renderLandscapeInstruction() {
+        this.overlay.innerHTML = `
+            <div class="vr-overlay-content landscape">
+                <div class="vr-overlay-icon-corner">
+                    <svg viewBox="0 0 24 24" fill="#EA4335" width="48" height="48">
+                        <path d="M20.74 6H3.21C2.55 6 2 6.57 2 7.28v10.44c0 .7.55 1.28 1.23 1.28h4.79c.52 0 .98-.34 1.14-.84l.99-3.11c.23-.71.88-1.19 1.62-1.19h.46c.74 0 1.39.48 1.62 1.19l.99 3.11c.16.5.63.84 1.14.84h4.79c.68 0 1.23-.57 1.23-1.28V7.28c0-.71-.55-1.28-1.26-1.28zM7.5 14.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm9 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
+                    </svg>
+                    <span>Google Cardboard</span>
+                </div>
+                <div class="swipe-icon">
+                    <svg viewBox="0 0 100 100" width="80" height="80">
+                        <path d="M50 80 L50 20" stroke="#333" stroke-width="3" fill="none"/>
+                        <path d="M35 35 L50 20 L65 35" stroke="#333" stroke-width="3" fill="none"/>
+                        <ellipse cx="50" cy="85" rx="15" ry="10" fill="none" stroke="#333" stroke-width="2"/>
+                    </svg>
+                </div>
+                <p class="vr-overlay-instruction">Geser ke atas untuk masuk<br><strong>Fullscreen Mode</strong></p>
+                <button id="vr-step2-enter" class="vr-overlay-btn primary">MASUK VR</button>
+            </div>
+        `;
+
+        // Bind enter button
+        this.overlay.querySelector('#vr-step2-enter').addEventListener('click', () => {
+            this.hide();
+            if (this.onEnterVR) this.onEnterVR();
+        });
+    }
+
+    checkOrientation() {
+        this.isLandscape = window.innerWidth > window.innerHeight;
+    }
+
+    startOrientationWatch() {
+        this.orientationHandler = () => {
+            const wasLandscape = this.isLandscape;
+            this.checkOrientation();
+
+            // Only re-render if orientation changed
+            if (wasLandscape !== this.isLandscape && this.currentStep === 2) {
+                this.renderStep2();
+            }
+        };
+
+        window.addEventListener('resize', this.orientationHandler);
+        window.addEventListener('orientationchange', this.orientationHandler);
+    }
+
+    stopOrientationWatch() {
+        if (this.orientationHandler) {
+            window.removeEventListener('resize', this.orientationHandler);
+            window.removeEventListener('orientationchange', this.orientationHandler);
+            this.orientationHandler = null;
+        }
     }
 
     dispose() {
+        this.stopOrientationWatch();
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.parentNode.removeChild(this.overlay);
         }

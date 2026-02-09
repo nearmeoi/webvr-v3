@@ -384,73 +384,129 @@ canvas {
     }
 }
 
-/* ==================== VR INSTRUCTION OVERLAY ==================== */
+/* ==================== VR INSTRUCTION OVERLAY (Google Cardboard Style) ==================== */
 
 #vr-instruction-overlay {
-    background: rgba(0, 0, 0, 0.95);
+    background: #ffffff;
     font-family: 'Roboto', sans-serif;
 }
 
 #vr-instruction-overlay .vr-overlay-content {
     text-align: center;
     padding: 40px;
-    max-width: 400px;
+    max-width: 100%;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
 }
 
-#vr-instruction-overlay .vr-overlay-icon svg {
-    width: 80px;
-    height: 80px;
-    margin-bottom: 20px;
-    opacity: 0.9;
+#vr-instruction-overlay .vr-overlay-content.landscape {
+    flex-direction: row;
+    justify-content: center;
 }
 
-#vr-instruction-overlay h2 {
-    margin: 0 0 20px 0;
-    font-size: 1.8rem;
-    font-weight: 500;
-    color: white;
+/* Google Cardboard Icon + Text */
+#vr-instruction-overlay .vr-overlay-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 30px;
 }
 
-#vr-instruction-overlay p {
-    margin: 8px 0;
+#vr-instruction-overlay .google-cardboard-text {
+    font-size: 1.2rem;
+    color: #666;
+    text-align: center;
+    line-height: 1.3;
+    margin-top: 10px;
+}
+
+/* Corner icon for landscape mode */
+#vr-instruction-overlay .vr-overlay-icon-corner {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#vr-instruction-overlay .vr-overlay-icon-corner span {
     font-size: 1rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: #EA4335;
+    font-weight: 500;
+}
+
+/* Description text */
+#vr-instruction-overlay .vr-overlay-desc {
+    margin: 0 0 30px 0;
+    font-size: 1rem;
+    color: #666;
+    line-height: 1.6;
+    max-width: 300px;
+}
+
+/* Instruction text */
+#vr-instruction-overlay .vr-overlay-instruction {
+    margin: 20px 0 30px 0;
+    font-size: 1.2rem;
+    color: #333;
     line-height: 1.5;
 }
 
-#vr-overlay-enter-btn {
-    margin-top: 30px;
-    padding: 16px 50px;
-    font-size: 1.1rem;
+#vr-instruction-overlay .vr-overlay-instruction strong {
+    color: #000;
+}
+
+/* Rotate / Swipe icon containers */
+#vr-instruction-overlay .rotate-icon,
+#vr-instruction-overlay .swipe-icon {
+    margin: 20px 0;
+}
+
+/* Buttons */
+#vr-instruction-overlay .vr-overlay-btn {
+    padding: 14px 40px;
+    font-size: 1rem;
     font-weight: 700;
-    color: white;
-    background: linear-gradient(135deg, #00AEEF 0%, #007AFF 100%);
     border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 15px rgba(0, 174, 239, 0.4);
-}
-
-#vr-overlay-enter-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba(0, 174, 239, 0.6);
-}
-
-#vr-overlay-cancel-btn {
-    display: block;
-    margin: 20px auto 0;
-    padding: 10px 30px;
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.6);
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 4px;
     cursor: pointer;
-    transition: color 0.2s, border-color 0.2s;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-#vr-overlay-cancel-btn:hover {
+#vr-instruction-overlay .vr-overlay-btn.primary {
+    background: #00AEEF;
     color: white;
-    border-color: white;
+    box-shadow: 0 2px 8px rgba(0, 174, 239, 0.3);
+}
+
+#vr-instruction-overlay .vr-overlay-btn.primary:hover {
+    background: #0095cc;
+    box-shadow: 0 4px 12px rgba(0, 174, 239, 0.4);
+}
+
+#vr-instruction-overlay .vr-overlay-btn.secondary {
+    background: transparent;
+    color: #666;
+    border: 1px solid #ccc;
+    margin-top: 15px;
+}
+
+#vr-instruction-overlay .vr-overlay-btn.secondary:hover {
+    color: #333;
+    border-color: #999;
+}
+
+/* Specific button overrides */
+#vr-step2-enter {
+    margin-top: 20px;
+    padding: 14px 50px;
+    font-size: 1.1rem;
 }
