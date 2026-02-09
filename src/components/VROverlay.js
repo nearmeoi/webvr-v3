@@ -172,12 +172,26 @@ export class VROverlay {
                     </svg>
                 </div>
                 <p class="vr-overlay-instruction">Geser ke atas untuk masuk<br><strong>Fullscreen Mode</strong></p>
+                <p class="vr-overlay-hint">atau ketuk tombol di bawah</p>
+                <button id="vr-step2-enter" class="vr-overlay-btn primary">MASUK VR</button>
             </div>
         `;
+
+        // Fallback button click
+        const enterBtn = this.overlay.querySelector('#vr-step2-enter');
+        if (enterBtn) {
+            enterBtn.addEventListener('click', () => {
+                console.log('iOS fallback button clicked');
+                this.stopFullscreenWatch();
+                this.hide();
+                if (this.onEnterVR) this.onEnterVR();
+            });
+        }
 
         // Start watching for fullscreen (toolbar hide)
         this.startFullscreenWatch();
     }
+
 
     // Detect when Safari toolbar is hidden (viewport height increases)
     startFullscreenWatch() {
