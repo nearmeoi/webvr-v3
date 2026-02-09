@@ -237,10 +237,10 @@ class App {
     // Called by VROverlay when user clicks "ENTER VR"
     async startVRSession() {
         try {
-            // On iOS, enter video fullscreen first for true fullscreen
-            if (this.isIOSDevice && this.iOSFullscreenHelper) {
-                console.log('iOS: Entering video fullscreen wrapper...');
-                await this.iOSFullscreenHelper.enterFullscreen();
+            // iOS Safari scroll trick to hide address bar
+            if (this.isIOSDevice) {
+                console.log('iOS: Triggering scroll-to-hide trick...');
+                await this.triggerIOSFullscreen();
             }
 
             // Start WebXR session
@@ -253,6 +253,38 @@ class App {
             console.log('Failed to start WebXR session:', e.message);
         }
     }
+
+    // iOS Safari trick: make page taller than viewport, scroll to trigger bar hide
+    triggerIOSFullscreen() {
+        return new Promise((resolve) => {
+            // Save original styles
+            const originalHeight = document.body.style.height;
+            const originalOverflow = document.body.style.overflow;
+
+            // Make body taller than viewport to allow scroll
+            document.body.style.height = (window.innerHeight + 100) + 'px';
+            document.body.style.overflow = 'auto';
+
+            // Scroll down 1px to trigger Safari to hide toolbar
+            setTimeout(() => {
+                window.scrollTo(0, 1);
+
+                // Wait a bit for Safari to process
+                setTimeout(() => {
+                    // Restore original styles
+                    document.body.style.height = originalHeight || '';
+                    document.body.style.overflow = originalOverflow || '';
+
+                    // Scroll back to top
+                    window.scrollTo(0, 0);
+
+                    console.log('iOS scroll trick completed');
+                    resolve();
+                }, 300);
+            }, 100);
+        });
+    }
+
 
     initCustomCardboard() {
         this.cardboardManager = new CardboardModeManager(
