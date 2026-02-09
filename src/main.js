@@ -8,6 +8,7 @@ import { CardboardModeManager } from './components/CardboardModeManager.js';
 import { isIOS, isWebXRSupported, isMobile, isCardboardForced } from './utils/deviceDetection.js';
 import { CONFIG } from './config.js';
 import { TOUR_DATA } from './data/tourData.js';
+import { WebVRHelper } from './utils/WebVRHelper.js';
 
 // Initialize WebVR Polyfill for iOS and other unsupported browsers
 // This provides Cardboard-style VR using device orientation
@@ -125,8 +126,35 @@ class App {
 
         if (!needsFallback) return;
 
-        console.log('Mobile VR Fallback enabled - using custom stereo effect');
+        console.log('Mobile VR Fallback enabled');
 
+        // Try to use WebVR polyfill first (better iOS fullscreen support)
+        this.webVRHelper = new WebVRHelper(this.renderer, this.camera, this.scene);
+        this.webVRHelper.init().then(success => {
+            if (success) {
+                console.log('WebVR polyfill initialized successfully!');
+                this.webVRHelper.createButton();
+
+                this.webVRHelper.onEnterVR = () => {
+                    this.isVRMode = true;
+                    if (this.panoramaViewer) this.panoramaViewer.setVRMode(true);
+                };
+
+                this.webVRHelper.onExitVR = () => {
+                    this.isVRMode = false;
+                    if (this.panoramaViewer) this.panoramaViewer.setVRMode(false);
+                };
+            } else {
+                console.log('WebVR not available, using custom stereo effect');
+                this.initCustomCardboard();
+            }
+        }).catch(e => {
+            console.error('WebVR init error:', e);
+            this.initCustomCardboard();
+        });
+    }
+
+    initCustomCardboard() {
         this.cardboardManager = new CardboardModeManager(
             this.renderer,
             this.camera,
@@ -531,10 +559,18 @@ class App {
         // Update components
         this.panoramaViewer.update(delta);
 
-        // Render (stereo or normal)
-        const usedStereo = this.cardboardManager?.render(this.scene, this.camera);
-        if (!usedStereo) {
-            this.renderer.render(this.scene, this.camera);
+        // Render (WebVR, stereo, or normal)
+        let usedWebVR = false;
+        if (this.webVRHelper && this.webVRHelper.isPresenting) {
+            this.webVRHelper.render();
+            usedWebVR = true;
+        }
+
+        if (!usedWebVR) {
+            const usedStereo = this.cardboardManager?.render(this.scene, this.camera);
+            if (!usedStereo) {
+                this.renderer.render(this.scene, this.camera);
+            }
         }
     }
 
