@@ -632,15 +632,26 @@ class App {
             this.panoramaViewer.setBackButtonVisibility(false);
             this.panoramaViewer.setAudioButtonsPosition('standalone');
 
-            // Enter cardboard mode on mobile if WebXR is NOT being used
+            // Enter VR mode automatically on mobile
             setTimeout(async () => {
-                const isXRActive = this.renderer.xr.enabled && this.renderer.xr.isPresenting;
-                if (!isXRActive && (this.isMobileDevice || this.isIOSDevice)) {
-                    // Force start gyroscope and stereo
-                    if (this.cardboardManager) {
-                        await this.cardboardManager.initGyroscope();
-                        this.enterCardboardMode();
+                // Try WebXR first if polyfill provided it
+                if (this.renderer.xr.enabled && navigator.xr) {
+                    try {
+                        const session = await navigator.xr.requestSession('immersive-vr', {
+                            optionalFeatures: ['local-floor', 'bounded-floor']
+                        });
+                        this.renderer.xr.setSession(session);
+                        console.log('WebXR session started automatically');
+                        return;
+                    } catch (e) {
+                        console.log('WebXR auto-start failed:', e.message);
                     }
+                }
+
+                // Fallback to CardboardModeManager
+                if (this.cardboardManager && (this.isMobileDevice || this.isIOSDevice)) {
+                    console.log('Starting CardboardModeManager...');
+                    await this.cardboardManager.enter();
                 }
             }, 100);
         });
