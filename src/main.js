@@ -118,29 +118,22 @@ class App {
     }
 
     initCardboardMode() {
-        // With WebXR polyfill initialized, all devices should now have navigator.xr
-        // Try to use native WebXR VRButton first
-        // If that fails or device doesn't support immersive-vr, fall back to custom CardboardModeManager
+        // WebXR polyfill provides navigator.xr on all devices
+        // We only use WebXR, no fallback to CardboardModeManager
 
-        const isForced = isCardboardForced();
-
-        // Check if WebXR is now available (native or via polyfill)
         if (navigator.xr) {
             navigator.xr.isSessionSupported('immersive-vr').then(supported => {
                 if (supported) {
                     console.log('WebXR immersive-vr supported (native or polyfill)');
                     this.initWebXRMode();
                 } else {
-                    console.log('WebXR immersive-vr not supported, using custom stereo');
-                    this.initCustomCardboard();
+                    console.log('WebXR immersive-vr not supported on this device');
                 }
             }).catch(e => {
                 console.log('WebXR check failed:', e);
-                this.initCustomCardboard();
             });
         } else {
-            console.log('No WebXR available, using custom stereo');
-            this.initCustomCardboard();
+            console.log('No WebXR available');
         }
     }
 
@@ -632,9 +625,8 @@ class App {
             this.panoramaViewer.setBackButtonVisibility(false);
             this.panoramaViewer.setAudioButtonsPosition('standalone');
 
-            // Enter VR mode automatically on mobile
+            // Enter VR mode automatically using WebXR polyfill
             setTimeout(async () => {
-                // Try WebXR first if polyfill provided it
                 if (this.renderer.xr.enabled && navigator.xr) {
                     try {
                         const session = await navigator.xr.requestSession('immersive-vr', {
@@ -642,16 +634,9 @@ class App {
                         });
                         this.renderer.xr.setSession(session);
                         console.log('WebXR session started automatically');
-                        return;
                     } catch (e) {
                         console.log('WebXR auto-start failed:', e.message);
                     }
-                }
-
-                // Fallback to CardboardModeManager
-                if (this.cardboardManager && (this.isMobileDevice || this.isIOSDevice)) {
-                    console.log('Starting CardboardModeManager...');
-                    await this.cardboardManager.enter();
                 }
             }, 100);
         });
