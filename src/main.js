@@ -7,8 +7,10 @@ import { PanoramaViewer } from './components/PanoramaViewer.js';
 import { CardboardModeManager } from './components/CardboardModeManager.js';
 import { isIOS, isWebXRSupported, isMobile, isCardboardForced } from './utils/deviceDetection.js';
 import { iOSFullscreenHelper } from './utils/iOSFullscreenHelper.js';
+import { VROverlay } from './components/VROverlay.js';
 import { CONFIG } from './config.js';
 import { TOUR_DATA } from './data/tourData.js';
+
 
 
 // Initialize WebXR Polyfill for iOS/mobile devices without native WebXR
@@ -23,9 +25,9 @@ const polyfill = new WebXRPolyfill({
     allowCardboardOnDesktop: false,
     // Cardboard-specific configuration
     cardboardConfig: {
-        // Disable the polyfill's own UI (we have our own)
-        CARDBOARD_UI_DISABLED: true,
-        // Disable rotation instructions
+        // Enable the polyfill's own UI (gear icon, viewer selector)
+        CARDBOARD_UI_DISABLED: false,
+        // Disable rotation instructions (we will provide our own)
         ROTATE_INSTRUCTIONS_DISABLED: true,
         // Buffer scale for performance
         BUFFER_SCALE: 0.75
@@ -44,6 +46,9 @@ class App {
             this.iOSFullscreenHelper = new iOSFullscreenHelper();
             console.log('iOS Fullscreen Helper initialized');
         }
+
+        // VR Overlay (pre-VR instructions)
+        this.vrOverlay = new VROverlay(() => this.startVRSession());
 
         // State
         this.currentState = 'welcome';
@@ -212,34 +217,41 @@ class App {
             button.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
         };
 
-        // Click handler - start WebXR session with iOS fullscreen wrapper
-        button.addEventListener('click', async () => {
+        // Click handler - show VR instruction overlay first
+        button.addEventListener('click', () => {
             if (!navigator.xr) {
                 console.log('WebXR not available');
+                alert('WebXR tidak tersedia di browser ini.');
                 return;
             }
-
-            try {
-                // On iOS, enter video fullscreen first for true fullscreen
-                if (this.isIOSDevice && this.iOSFullscreenHelper) {
-                    console.log('iOS: Entering video fullscreen wrapper...');
-                    await this.iOSFullscreenHelper.enterFullscreen();
-                }
-
-                // Start WebXR session
-                const session = await navigator.xr.requestSession('immersive-vr', {
-                    optionalFeatures: ['local-floor', 'bounded-floor']
-                });
-                this.renderer.xr.setSession(session);
-                console.log('WebXR session started');
-            } catch (e) {
-                console.log('Failed to start WebXR session:', e.message);
-                // Don't show alert, just log
+            // Show the instruction overlay
+            if (this.vrOverlay) {
+                this.vrOverlay.show();
             }
         });
 
         document.body.appendChild(button);
         this.vrButton = button;
+    }
+
+    // Called by VROverlay when user clicks "ENTER VR"
+    async startVRSession() {
+        try {
+            // On iOS, enter video fullscreen first for true fullscreen
+            if (this.isIOSDevice && this.iOSFullscreenHelper) {
+                console.log('iOS: Entering video fullscreen wrapper...');
+                await this.iOSFullscreenHelper.enterFullscreen();
+            }
+
+            // Start WebXR session
+            const session = await navigator.xr.requestSession('immersive-vr', {
+                optionalFeatures: ['local-floor', 'bounded-floor']
+            });
+            this.renderer.xr.setSession(session);
+            console.log('WebXR session started via overlay');
+        } catch (e) {
+            console.log('Failed to start WebXR session:', e.message);
+        }
     }
 
     initCustomCardboard() {

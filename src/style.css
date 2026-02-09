@@ -383,3 +383,74 @@ canvas {
         display: none !important;
     }
 }
+
+/* ==================== VR INSTRUCTION OVERLAY ==================== */
+
+#vr-instruction-overlay {
+    background: rgba(0, 0, 0, 0.95);
+    font-family: 'Roboto', sans-serif;
+}
+
+#vr-instruction-overlay .vr-overlay-content {
+    text-align: center;
+    padding: 40px;
+    max-width: 400px;
+}
+
+#vr-instruction-overlay .vr-overlay-icon svg {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 20px;
+    opacity: 0.9;
+}
+
+#vr-instruction-overlay h2 {
+    margin: 0 0 20px 0;
+    font-size: 1.8rem;
+    font-weight: 500;
+    color: white;
+}
+
+#vr-instruction-overlay p {
+    margin: 8px 0;
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.5;
+}
+
+#vr-overlay-enter-btn {
+    margin-top: 30px;
+    padding: 16px 50px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #00AEEF 0%, #007AFF 100%);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(0, 174, 239, 0.4);
+}
+
+#vr-overlay-enter-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(0, 174, 239, 0.6);
+}
+
+#vr-overlay-cancel-btn {
+    display: block;
+    margin: 20px auto 0;
+    padding: 10px 30px;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.6);
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+#vr-overlay-cancel-btn:hover {
+    color: white;
+    border-color: white;
+}
