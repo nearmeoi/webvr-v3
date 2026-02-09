@@ -145,11 +145,11 @@ export class CardboardModeManager {
             this.onModeChange(true);
         }
 
-        // Disable OrbitControls ONLY if Gyroscope is actually working
-        // If gyro is blocked (e.g. HTTP IP access), keep touch enabled as fallback
+        // ALWAYS keep touch controls enabled for accessibility
+        // Gyroscope will ADD to the rotation, but touch swipe remains active
         if (this.controls) {
-            this.controls.enabled = this.gyroscopeEnabled ? false : true;
-            console.log('VR Control Mode:', this.gyroscopeEnabled ? 'GYROSCOPE' : 'TOUCH FALLBACK (IP Access)');
+            this.controls.enabled = true;
+            console.log('VR Control Mode: TOUCH ENABLED (Gyro will supplement if available)');
         }
 
         console.log('Entered Cardboard VR mode');

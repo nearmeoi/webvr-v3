@@ -11,8 +11,11 @@ export class CardboardButton {
         this.isInVR = false;
         this.button = null;
 
-        // Create button for iOS devices OR when forced via URL (?cardboard=true)
-        if (isIOS() || isCardboardForced()) {
+        // Create button for mobile devices OR when forced via URL (?cardboard=true)
+        // Only if it's NOT an iOS device (iOS handled via landing screen or forced check)
+        // Actually, the button should appear if WebXR is NOT supported.
+        const supportsWebXR = 'xr' in navigator;
+        if (isCardboardForced() || (isMobile() && !supportsWebXR) || isIOS()) {
             this.createButton();
         }
     }

@@ -68,6 +68,7 @@ export class GyroscopeControls {
         this.screenOrientation = window.orientation || 0;
 
         this.enabled = true;
+        this.gotAnyData = false; // Track if we ever got valid data
         console.log('Gyroscope controls enabled');
         return true;
     }
@@ -82,13 +83,25 @@ export class GyroscopeControls {
     onDeviceOrientation(event) {
         if (!this.enabled) return;
 
-        // Check for valid data (iOS sometimes sends nulls initially)
-        if (event.alpha === null || event.beta === null || event.gamma === null) return;
+        // Check for valid data (some browsers send empty/null initially)
+        // Prefer absolute orientation data if available in the event (for absolute event type)
+        const alpha = event.alpha;
+        const beta = event.beta;
+        const gamma = event.gamma;
+
+        if (alpha === null || beta === null || gamma === null) return;
+
+        // Check for "stuck" zeros (sometimes browsers fire the event but don't provide real data)
+        // We only mark gotAnyData if at least one value is non-zero
+        if (!this.gotAnyData && (Math.abs(alpha) > 0.0001 || Math.abs(beta) > 0.0001 || Math.abs(gamma) > 0.0001)) {
+            console.log('Gyroscope: Real movement data received:', alpha, beta, gamma);
+            this.gotAnyData = true;
+        }
 
         this.deviceOrientation = {
-            alpha: event.alpha || 0,  // Z axis (compass direction)
-            beta: event.beta || 0,    // X axis (front-to-back tilt)
-            gamma: event.gamma || 0   // Y axis (left-to-right tilt)
+            alpha: alpha || 0,
+            beta: beta || 0,
+            gamma: gamma || 0
         };
     }
 

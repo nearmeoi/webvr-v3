@@ -41,6 +41,21 @@ class App {
         this.container = document.createElement('div');
         document.body.appendChild(this.container);
 
+        // Debug Label (Internal)
+        this.debugInfo = document.createElement('div');
+        Object.assign(this.debugInfo.style, {
+            position: 'fixed',
+            bottom: '10px',
+            left: '10px',
+            fontSize: '10px',
+            color: 'rgba(255,255,255,0.5)',
+            zIndex: '10000',
+            pointerEvents: 'none',
+            fontFamily: 'monospace',
+            display: 'none' // Hidden by default, can be toggled by dev
+        });
+        document.body.appendChild(this.debugInfo);
+
         this.renderer = new THREE.WebGLRenderer({
             antialias: true,
             preserveDrawingBuffer: true // Required for screenshot transitions
@@ -48,8 +63,11 @@ class App {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
 
-        // Enable WebXR only for non-iOS devices
-        if (!this.isIOSDevice && isWebXRSupported()) {
+        // WebXR support check
+        const supportsWebXR = isWebXRSupported();
+
+        // Enable WebXR only for non-iOS devices that support it
+        if (!this.isIOSDevice && supportsWebXR) {
             this.renderer.xr.enabled = true;
             document.body.appendChild(VRButton.createButton(this.renderer));
         }
@@ -79,11 +97,20 @@ class App {
 
     initCardboardMode() {
         // iOS MUST use this custom manager because it lacks WebXR Cardboard support
-        // Android/Other should use the native VRButton (WebXR)
-        const isForced = window.location.search.includes('cardboard=true');
-        if (!this.isIOSDevice && !isForced) return;
+        // Android/Other should use the native VRButton (WebXR) if available
+        // Fallback to Cardboard mode for any mobile device without WebXR
+        const isForced = isCardboardForced();
+        const supportsWebXR = isWebXRSupported();
 
-        console.log('iOS Cardboard mode enabled - using custom stereo effect');
+        // Use Cardboard fallback if:
+        // 1. It's an iOS device
+        // 2. OR it's forced via URL
+        // 3. OR it's a mobile device and NO WebXR support is detected
+        const needsFallback = this.isIOSDevice || isForced || (this.isMobileDevice && !supportsWebXR);
+
+        if (!needsFallback) return;
+
+        console.log('Mobile VR Fallback enabled - using custom stereo effect');
 
         this.cardboardManager = new CardboardModeManager(
             this.renderer,
@@ -319,48 +346,6 @@ class App {
         return { raycaster, intersects };
     }
 
-    initLandingScreen() {
-        const landingScreen = document.getElementById('landing-screen');
-        const enterBtn = document.getElementById('enter-vr-btn');
-
-        if (!enterBtn) return;
-
-        enterBtn.addEventListener('click', async () => {
-            // Request fullscreen
-            await this.requestFullscreen();
-
-            // Lock landscape
-            this.lockLandscape();
-
-            // Resume audio context
-            if (THREE.AudioContext?.state === 'suspended') {
-                THREE.AudioContext.resume();
-            }
-
-            // Fade out landing screen
-            landingScreen.style.opacity = '0';
-            setTimeout(() => {
-                landingScreen.style.display = 'none';
-            }, 500);
-
-            // Hide menu just in case
-            if (this.orbitalMenu) this.orbitalMenu.hide();
-
-            // Load Lobby Panorama directly (Hub model)
-            console.log('Loading Lobby Panorama...');
-            this.currentState = 'panorama';
-            this.panoramaViewer.navigateToScene('assets/Museum Kota Makassar/lobby_C12D6770.jpg');
-            this.panoramaViewer.setBackButtonVisibility(false);
-            this.panoramaViewer.setAudioButtonsPosition('standalone');
-
-            // Enter cardboard mode on mobile (slight delay for fullscreen)
-            setTimeout(() => {
-                if (this.isMobileDevice || this.isIOSDevice) {
-                    this.enterCardboardMode();
-                }
-            }, 100);
-        });
-    }
 
     // ==================== BACKGROUND ====================
 
@@ -501,6 +486,22 @@ class App {
         // Update cardboard manager (gyroscope)
         if (this.cardboardManager) {
             this.cardboardManager.update();
+
+            // Update debug info if visible
+            if (this.debugInfo && (this.cardboardManager.isCardboardMode || window.location.search.includes('debug=true'))) {
+                const gyro = this.cardboardManager.gyroscopeControls;
+                const data = gyro?.deviceOrientation;
+                const isHttps = window.location.protocol === 'https:';
+
+                this.debugInfo.style.display = 'block';
+                this.debugInfo.innerHTML = `
+                    <div style="background:rgba(0,0,0,0.7); padding:4px; border-radius:4px;">
+                    GYRO: ${gyro?.enabled ? 'ON' : 'OFF'} | DATA: ${gyro?.gotAnyData ? 'YES' : 'NO'}<br>
+                    A:${data?.alpha?.toFixed(1) || 0} B:${data?.beta?.toFixed(1) || 0} G:${data?.gamma?.toFixed(1) || 0}<br>
+                    HTTPS: ${isHttps ? '<span style="color:#4f4">YES</span>' : '<span style="color:#f44">NO - SENSORS BLOCKED</span>'}
+                    </div>
+                `;
+            }
         }
 
         // Build interactables list
@@ -546,21 +547,33 @@ class App {
                 await THREE.AudioContext.resume();
             }
 
-            // Initialize Cardboard Manager (includes Gyroscope Request)
-            if (this.cardboardManager) {
-                await this.cardboardManager.initGyroscope();
-            }
-
             // Fade out landing screen
             landingScreen.style.opacity = '0';
             setTimeout(() => {
                 landingScreen.style.display = 'none';
             }, 500);
 
+            // Hide menu just in case (if exists)
+            if (this.orbitalMenu) this.orbitalMenu.hide();
+
             // Load Lobby Panorama directly
             console.log('Loading Museum Lobby...');
             this.currentState = 'panorama';
             this.panoramaViewer.navigateToScene('assets/Museum Kota Makassar/lobby_C12D6770.jpg');
+            this.panoramaViewer.setBackButtonVisibility(false);
+            this.panoramaViewer.setAudioButtonsPosition('standalone');
+
+            // Enter cardboard mode on mobile if WebXR is NOT being used
+            setTimeout(async () => {
+                const isXRActive = this.renderer.xr.enabled && this.renderer.xr.isPresenting;
+                if (!isXRActive && (this.isMobileDevice || this.isIOSDevice)) {
+                    // Force start gyroscope and stereo
+                    if (this.cardboardManager) {
+                        await this.cardboardManager.initGyroscope();
+                        this.enterCardboardMode();
+                    }
+                }
+            }, 100);
         });
     }
 
