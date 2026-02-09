@@ -9,8 +9,27 @@ import { isIOS, isWebXRSupported, isMobile, isCardboardForced } from './utils/de
 import { CONFIG } from './config.js';
 import { TOUR_DATA } from './data/tourData.js';
 
-// Note: WebVR polyfill was removed due to canvas context conflicts with Three.js
-// Using custom CardboardModeManager instead for stereo rendering
+// Initialize WebXR Polyfill for iOS/mobile devices without native WebXR
+// This must be done BEFORE any WebXR code runs
+import WebXRPolyfill from 'webxr-polyfill';
+const polyfill = new WebXRPolyfill({
+    // Enable CardboardVRDisplay on mobile devices
+    cardboard: true,
+    // Fall back to WebVR 1.1 if available
+    webvr: true,
+    // Allow testing on desktop (for development)
+    allowCardboardOnDesktop: false,
+    // Cardboard-specific configuration
+    cardboardConfig: {
+        // Disable the polyfill's own UI (we have our own)
+        CARDBOARD_UI_DISABLED: true,
+        // Disable rotation instructions
+        ROTATE_INSTRUCTIONS_DISABLED: true,
+        // Buffer scale for performance
+        BUFFER_SCALE: 0.75
+    }
+});
+console.log('WebXR Polyfill initialized:', polyfill);
 
 class App {
     constructor() {
@@ -99,25 +118,55 @@ class App {
     }
 
     initCardboardMode() {
-        // iOS MUST use this custom manager because it lacks WebXR Cardboard support
-        // Android/Other should use the native VRButton (WebXR) if available
-        // Fallback to Cardboard mode for any mobile device without WebXR
+        // With WebXR polyfill initialized, all devices should now have navigator.xr
+        // Try to use native WebXR VRButton first
+        // If that fails or device doesn't support immersive-vr, fall back to custom CardboardModeManager
+
         const isForced = isCardboardForced();
-        const supportsWebXR = isWebXRSupported();
 
-        // Use Cardboard fallback if:
-        // 1. It's an iOS device
-        // 2. OR it's forced via URL
-        // 3. OR it's a mobile device and NO WebXR support is detected
-        const needsFallback = this.isIOSDevice || isForced || (this.isMobileDevice && !supportsWebXR);
+        // Check if WebXR is now available (native or via polyfill)
+        if (navigator.xr) {
+            navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                if (supported) {
+                    console.log('WebXR immersive-vr supported (native or polyfill)');
+                    this.initWebXRMode();
+                } else {
+                    console.log('WebXR immersive-vr not supported, using custom stereo');
+                    this.initCustomCardboard();
+                }
+            }).catch(e => {
+                console.log('WebXR check failed:', e);
+                this.initCustomCardboard();
+            });
+        } else {
+            console.log('No WebXR available, using custom stereo');
+            this.initCustomCardboard();
+        }
+    }
 
-        if (!needsFallback) return;
+    initWebXRMode() {
+        // Enable WebXR on the renderer
+        this.renderer.xr.enabled = true;
 
-        console.log('Mobile VR Fallback enabled - using custom stereo effect');
+        // Create and add VRButton
+        const vrButton = VRButton.createButton(this.renderer);
+        document.body.appendChild(vrButton);
 
-        // Note: WebVR polyfill creates canvas context conflicts with Three.js
-        // So we use our custom CardboardModeManager instead
-        this.initCustomCardboard();
+        // Set reference space type
+        this.renderer.xr.setReferenceSpaceType('local');
+
+        // Listen for session start/end
+        this.renderer.xr.addEventListener('sessionstart', () => {
+            console.log('WebXR session started');
+            this.isVRMode = true;
+            if (this.panoramaViewer) this.panoramaViewer.setVRMode(true);
+        });
+
+        this.renderer.xr.addEventListener('sessionend', () => {
+            console.log('WebXR session ended');
+            this.isVRMode = false;
+            if (this.panoramaViewer) this.panoramaViewer.setVRMode(false);
+        });
     }
 
     initCustomCardboard() {
