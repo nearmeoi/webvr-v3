@@ -104,10 +104,27 @@ export class VROverlay {
         this.startOrientationWatch();
     }
 
+    isAndroid() {
+        return /Android/i.test(navigator.userAgent);
+    }
+
+    isIOS() {
+        return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+
     renderStep2() {
         this.checkOrientation();
 
         if (this.isLandscape) {
+            // On Android, skip the swipe step - enter VR directly
+            if (this.isAndroid()) {
+                console.log('Android detected + Landscape: Auto-entering VR...');
+                this.hide();
+                if (this.onEnterVR) this.onEnterVR();
+                return;
+            }
+            // On iOS, show swipe instruction
             this.renderLandscapeInstruction();
         } else {
             this.renderPortraitInstruction();
