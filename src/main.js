@@ -6,8 +6,10 @@ import { GazeController } from './components/GazeController.js';
 import { PanoramaViewer } from './components/PanoramaViewer.js';
 import { CardboardModeManager } from './components/CardboardModeManager.js';
 import { isIOS, isWebXRSupported, isMobile, isCardboardForced } from './utils/deviceDetection.js';
+import { iOSFullscreenHelper } from './utils/iOSFullscreenHelper.js';
 import { CONFIG } from './config.js';
 import { TOUR_DATA } from './data/tourData.js';
+
 
 // Initialize WebXR Polyfill for iOS/mobile devices without native WebXR
 // This must be done BEFORE any WebXR code runs
@@ -36,6 +38,12 @@ class App {
         // Device detection
         this.isIOSDevice = isIOS() || isCardboardForced();
         this.isMobileDevice = isMobile();
+
+        // iOS Fullscreen Helper (video fullscreen wrapper)
+        if (this.isIOSDevice) {
+            this.iOSFullscreenHelper = new iOSFullscreenHelper();
+            console.log('iOS Fullscreen Helper initialized');
+        }
 
         // State
         this.currentState = 'welcome';
@@ -204,7 +212,7 @@ class App {
             button.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
         };
 
-        // Click handler - start WebXR session
+        // Click handler - start WebXR session with iOS fullscreen wrapper
         button.addEventListener('click', async () => {
             if (!navigator.xr) {
                 console.log('WebXR not available');
@@ -212,6 +220,13 @@ class App {
             }
 
             try {
+                // On iOS, enter video fullscreen first for true fullscreen
+                if (this.isIOSDevice && this.iOSFullscreenHelper) {
+                    console.log('iOS: Entering video fullscreen wrapper...');
+                    await this.iOSFullscreenHelper.enterFullscreen();
+                }
+
+                // Start WebXR session
                 const session = await navigator.xr.requestSession('immersive-vr', {
                     optionalFeatures: ['local-floor', 'bounded-floor']
                 });
@@ -219,7 +234,7 @@ class App {
                 console.log('WebXR session started');
             } catch (e) {
                 console.log('Failed to start WebXR session:', e.message);
-                alert('VR tidak tersedia: ' + e.message);
+                // Don't show alert, just log
             }
         });
 
