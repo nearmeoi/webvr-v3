@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import './style.css';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { DeviceOrientationControls } from 'three/addons/controls/DeviceOrientationControls.js';
 import { GazeController } from './components/GazeController.js';
 import { PanoramaViewer } from './components/PanoramaViewer.js';
 import { CardboardModeManager } from './components/CardboardModeManager.js';
-import { isIOS, isWebXRSupported, isMobile, isCardboardForced } from './utils/deviceDetection.js';
+import { isIOS, isWebXRSupported, isMobile, isCardboardForced, requestGyroscopePermission } from './utils/deviceDetection.js';
 import { iOSFullscreenHelper } from './utils/iOSFullscreenHelper.js';
 import { VROverlay } from './components/VROverlay.js';
 import { CONFIG } from './config.js';
@@ -134,6 +135,11 @@ class App {
         this.controls.enableZoom = false;
         this.controls.rotateSpeed = CONFIG.animation.rotateSpeed;
         this.controls.target.set(0, CONFIG.camera.eyeLevel, 0);
+
+        // Gyroscope Controls (for Magic Window mode)
+        this.deviceOrientationControls = new DeviceOrientationControls(this.camera);
+        // Default to disabled until permission is granted and user starts experience
+        this.isGyroEnabled = false;
     }
 
     initCardboardMode() {
@@ -170,6 +176,9 @@ class App {
         this.renderer.xr.addEventListener('sessionstart', () => {
             console.log('WebXR session started');
             this.isVRMode = true;
+            // Disable manual gyro scale/control, let WebXR handle it
+            if (this.deviceOrientationControls) this.deviceOrientationControls.enabled = false;
+
             if (this.panoramaViewer) this.panoramaViewer.setVRMode(true);
             if (this.vrButton) this.vrButton.style.display = 'none';
         });
@@ -177,8 +186,16 @@ class App {
         this.renderer.xr.addEventListener('sessionend', () => {
             console.log('WebXR session ended');
             this.isVRMode = false;
+            // Re-enable manual gyro if it was active
+            if (this.deviceOrientationControls && this.isGyroEnabled) {
+                this.deviceOrientationControls.enabled = true;
+            }
+
             if (this.panoramaViewer) this.panoramaViewer.setVRMode(false);
-            if (this.vrButton) this.vrButton.style.display = 'block';
+            if (this.vrButton) {
+                // Custom button needs flex, standard one needs block/initial
+                this.vrButton.style.display = (this.vrButton.id === 'vr-goggle-button') ? 'flex' : '';
+            }
 
             // Pulihkan state renderer setelah sesi VR polyfill berakhir
             // untuk mencegah error "drawElements: no buffer"
@@ -672,7 +689,13 @@ class App {
         const delta = this.clock.getDelta();
 
         // Update controls
-        if (this.controls) this.controls.update();
+        // If gyro is enabled and active, use it. Otherwise fallback to orbit controls.
+        // We check deviceOrientationControls.enabled just in case
+        if (this.isGyroEnabled && this.deviceOrientationControls) {
+            this.deviceOrientationControls.update();
+        } else if (this.controls) {
+            this.controls.update();
+        }
 
         // Update cardboard manager (gyroscope)
         if (this.cardboardManager) {
@@ -744,6 +767,20 @@ class App {
             // Resume audio context
             if (THREE.AudioContext?.state === 'suspended') {
                 await THREE.AudioContext.resume();
+            }
+
+            // Request Gyroscope Permission (iOS 13+)
+            // This must be done on user gesture (click), just like audio resume
+            try {
+                const gyroGranted = await requestGyroscopePermission();
+                if (gyroGranted) {
+                    this.isGyroEnabled = true;
+                    // Reset controls to align with current look direction
+                    // this.deviceOrientationControls.alphaOffset = this.camera.rotation.y; 
+                    console.log('Gyroscope enabled for Magic Window mode');
+                }
+            } catch (e) {
+                console.warn('Gyroscope request failed:', e);
             }
 
             // Fade out landing screen
