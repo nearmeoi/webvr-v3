@@ -129,14 +129,7 @@ export class VROverlay {
         this.checkOrientation();
 
         if (this.isLandscape) {
-            // On Android, skip the swipe step - enter VR directly
-            if (this.isAndroid()) {
-                console.log('Android detected + Landscape: Auto-entering VR...');
-                this.hide();
-                if (this.onEnterVR) this.onEnterVR();
-                return;
-            }
-            // On iOS, show swipe instruction
+            // Show swipe instruction on ALL devices (Android + iOS)
             this.renderLandscapeInstruction();
         } else {
             this.renderPortraitInstruction();
@@ -165,8 +158,6 @@ export class VROverlay {
     }
 
     renderLandscapeInstruction() {
-        // Record initial height to detect toolbar hide
-        this.initialViewportHeight = window.innerHeight;
 
         // iOS Safari: enable page scroll to hide address bar
         // 1. Add scroll classes to html + body (overrides overflow:hidden)
@@ -229,8 +220,19 @@ export class VROverlay {
     // Detect when Safari toolbar is hidden (viewport height increases)
     startFullscreenWatch() {
         this.swipeAttempts = 0;
+        this.readyForFullscreen = false;
+
+        // Delay readiness to prevent CSS layout changes from triggering false detection
+        setTimeout(() => {
+            this.initialViewportHeight = window.innerHeight;
+            this.readyForFullscreen = true;
+            console.log(`Fullscreen watch ready. Initial height: ${this.initialViewportHeight}`);
+        }, 600);
+
 
         this.fullscreenHandler = () => {
+            if (!this.readyForFullscreen) return; // Guard: ignore until CSS settles
+
             const currentHeight = window.innerHeight;
             const heightDiff = currentHeight - this.initialViewportHeight;
 
@@ -266,15 +268,9 @@ export class VROverlay {
                     setTimeout(() => {
                         this.fullscreenHandler();
 
-                        // If still not fullscreen after swipe, show retry hint
-                        const currentHeight = window.innerHeight;
-                        const heightDiff = currentHeight - this.initialViewportHeight;
-                        const screenH = Math.max(screen.availHeight, screen.height);
-                        const isFullscreen = heightDiff > 50 && (currentHeight >= screenH - 40);
-
-                        if (!isFullscreen && this.currentStep === 2) {
-                            this.showRetryHint();
-                            // Reset scroll so user can try again
+                        // If still not fullscreen, reset scroll so user can try again
+                        // The existing overlay stays visible as instruction
+                        if (this.currentStep === 2) {
                             window.scrollTo(0, 0);
                             setTimeout(() => window.scrollTo(0, 1), 200);
                         }
@@ -285,54 +281,6 @@ export class VROverlay {
 
         this.overlay.addEventListener('touchstart', this.touchHandler, { passive: true });
         this.overlay.addEventListener('touchend', this.touchHandler, { passive: true });
-    }
-
-    showRetryHint() {
-        let hint = this.overlay.querySelector('.swipe-retry-hint');
-        if (!hint) {
-            hint = document.createElement('div');
-            hint.className = 'swipe-retry-hint';
-            Object.assign(hint.style, {
-                position: 'fixed',
-                bottom: '30px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(234, 67, 53, 0.95)',
-                color: 'white',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                zIndex: '10001',
-                textAlign: 'center',
-                boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-                animation: 'pulse-hint 1.5s ease-in-out infinite'
-            });
-            hint.innerHTML = '☝️ Geser ke atas lagi, pelan-pelan';
-
-            // Add animation keyframes
-            if (!document.querySelector('#swipe-hint-anim')) {
-                const style = document.createElement('style');
-                style.id = 'swipe-hint-anim';
-                style.textContent = `
-                    @keyframes pulse-hint {
-                        0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
-                        50% { transform: translateX(-50%) scale(1.05); opacity: 0.85; }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-
-            this.overlay.appendChild(hint);
-        }
-
-        // Auto-hide after 3 seconds
-        hint.style.display = 'block';
-        hint.style.opacity = '1';
-        clearTimeout(this.hintTimeout);
-        this.hintTimeout = setTimeout(() => {
-            if (hint) hint.style.opacity = '0';
-        }, 3000);
     }
 
     stopFullscreenWatch() {
