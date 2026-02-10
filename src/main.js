@@ -107,7 +107,10 @@ class App {
         // Enable WebXR only for non-iOS devices that support it
         if (!this.isIOSDevice && supportsWebXR) {
             this.renderer.xr.enabled = true;
-            document.body.appendChild(VRButton.createButton(this.renderer));
+            this.vrButton = VRButton.createButton(this.renderer);
+            // Initially hide the VR button (glasses icon) on landing page
+            this.vrButton.style.display = 'none';
+            document.body.appendChild(this.vrButton);
         }
 
         this.container.appendChild(this.renderer.domElement);
@@ -208,7 +211,7 @@ class App {
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
             cursor: 'pointer',
-            display: 'flex',
+            display: 'none', // Initially hidden (was flex)
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: '9999',
@@ -756,6 +759,12 @@ class App {
             this.panoramaViewer.navigateToScene('assets/Museum Kota Makassar/lobby_C12D6770.jpg');
             this.panoramaViewer.setBackButtonVisibility(false);
             this.panoramaViewer.setAudioButtonsPosition('standalone');
+
+            // Show VR Button (if exists) after user starts experience
+            if (this.vrButton) {
+                // Custom button needs flex, standard one needs block/initial
+                this.vrButton.style.display = (this.vrButton.id === 'vr-goggle-button') ? 'flex' : '';
+            }
 
             // Note: User can click the VR button to enter WebXR VR mode
         });
