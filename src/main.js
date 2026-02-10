@@ -192,9 +192,9 @@ class App {
         const button = document.createElement('button');
         button.id = 'vr-goggle-button';
 
-        // SVG icon for Google Cardboard glasses
+        // SVG icon for Google Cardboard glasses (Outline)
         button.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="32" height="32">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="32" height="32">
                 <path d="M20.74 6H3.21C2.55 6 2 6.57 2 7.28v10.44c0 .7.55 1.28 1.23 1.28h4.79c.52 0 .98-.34 1.14-.84l.99-3.11c.23-.71.88-1.19 1.62-1.19h.46c.74 0 1.39.48 1.62 1.19l.99 3.11c.16.5.63.84 1.14.84h4.79c.68 0 1.23-.57 1.23-1.28V7.28c0-.71-.55-1.28-1.26-1.28zM7.5 14.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm9 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
             </svg>
         `;
@@ -203,29 +203,31 @@ class App {
         Object.assign(button.style, {
             position: 'fixed',
             bottom: '20px',
-            right: '20px',
-            width: '56px',
-            height: '56px',
+            right: '25px', // Slightly adjusted
+            width: '50px',
+            height: '50px',
             borderRadius: '50%',
-            border: 'none',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+            border: '2px solid rgba(255, 255, 255, 0.8)', // White outline border
+            background: 'rgba(0, 0, 0, 0.3)', // Semi-transparent dark background
+            backdropFilter: 'blur(4px)',
             cursor: 'pointer',
-            display: 'none', // Initially hidden (was flex)
+            display: 'none', // Initially hidden
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: '9999',
-            transition: 'transform 0.2s, box-shadow 0.2s'
+            transition: 'all 0.3s ease'
         });
 
         // Hover effect
         button.onmouseenter = () => {
             button.style.transform = 'scale(1.1)';
-            button.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+            button.style.background = 'rgba(0, 0, 0, 0.5)';
+            button.style.borderColor = 'white';
         };
         button.onmouseleave = () => {
             button.style.transform = 'scale(1)';
-            button.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+            button.style.background = 'rgba(0, 0, 0, 0.3)';
+            button.style.borderColor = 'rgba(255, 255, 255, 0.8)';
         };
 
         // Click handler - show VR instruction overlay first
