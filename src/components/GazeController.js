@@ -2,14 +2,15 @@ import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 
 export class GazeController {
-    constructor(camera, renderer) {
+    constructor(scene, camera, renderer) {
+        this.scene = scene;
         this.camera = camera;
         this.renderer = renderer; // For WebXR camera access
         this.raycaster = new THREE.Raycaster();
         this.center = new THREE.Vector2(0, 0); // Normalized center screen
 
         // Reticle (Simple dot cursor)
-        const reticleDistance = CONFIG.gaze.reticleDistance || 1.0;
+        this.reticleDistance = CONFIG.gaze.reticleDistance || 1.0;
         const reticleSize = CONFIG.gaze.reticleSize || 0.008;
 
         const geometry = new THREE.CircleGeometry(reticleSize, 32);
@@ -21,8 +22,8 @@ export class GazeController {
             depthWrite: false
         });
         this.mesh = new THREE.Mesh(geometry, material);
-        this.mesh.position.set(0, 0, -reticleDistance);
-        this.camera.add(this.mesh);
+        // Position will be updated in update() loop
+        this.scene.add(this.mesh);
         this.mesh.renderOrder = 999;
 
         // Progress indicator (Inner circle filling up)
@@ -77,6 +78,10 @@ export class GazeController {
 
         this.raycaster.set(origin, direction);
         this.raycaster.camera = currentCamera; // Critical for Sprite raycasting
+
+        // Position the reticle mesh at a fixed distance from camera
+        this.mesh.position.copy(origin).add(direction.multiplyScalar(this.reticleDistance));
+        this.mesh.lookAt(origin); // Orient towards camera
 
         // Force update world matrices before raycasting
         if (scene) scene.updateMatrixWorld(true);
@@ -188,8 +193,8 @@ export class GazeController {
     }
 
     dispose() {
-        if (this.mesh && this.camera) {
-            this.camera.remove(this.mesh);
+        if (this.mesh && this.scene) {
+            this.scene.remove(this.mesh);
         }
         if (this.mesh) {
             this.mesh.geometry.dispose();

@@ -372,7 +372,7 @@ class App {
 
     initComponents() {
         // Gaze controller
-        this.gazeController = new GazeController(this.camera, this.renderer);
+        this.gazeController = new GazeController(this.scene, this.camera, this.renderer);
 
         // Panorama viewer
         this.panoramaViewer = new PanoramaViewer(
