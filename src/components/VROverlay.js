@@ -128,7 +128,14 @@ export class VROverlay {
         this.checkOrientation();
 
         if (this.isLandscape) {
-            // Show swipe instruction on ALL devices (Android + iOS)
+            // Android: Enter VR directly (skip swipe)
+            if (this.isAndroid()) {
+                console.log('Android detected + Landscape: Auto-entering VR...');
+                this.hide();
+                if (this.onEnterVR) this.onEnterVR();
+                return;
+            }
+            // iOS/Others: Show swipe instruction (needed for fullscreen)
             this.renderLandscapeInstruction();
         } else {
             this.renderPortraitInstruction();
