@@ -228,16 +228,18 @@ export class VROverlay {
 
     // Detect when Safari toolbar is hidden (viewport height increases)
     startFullscreenWatch() {
+        this.swipeAttempts = 0;
+
         this.fullscreenHandler = () => {
             const currentHeight = window.innerHeight;
             const heightDiff = currentHeight - this.initialViewportHeight;
 
-            // If height increased by more than 30px, toolbar is likely hidden
-            // Also check if we're close to screen.availHeight (minus some buffer)
-            const isFullscreen = heightDiff > 30 ||
-                (window.innerHeight >= screen.availHeight - 50);
+            // Stricter check: require significant height increase
+            // AND viewport must be close to full screen height
+            const screenH = Math.max(screen.availHeight, screen.height);
+            const isFullscreen = heightDiff > 50 && (currentHeight >= screenH - 40);
 
-            console.log(`Viewport: ${this.initialViewportHeight} -> ${currentHeight}, diff: ${heightDiff}, fullscreen: ${isFullscreen}`);
+            console.log(`Viewport: ${this.initialViewportHeight} -> ${currentHeight}, diff: ${heightDiff}, screenH: ${screenH}, fullscreen: ${isFullscreen}`);
 
             if (isFullscreen && this.currentStep === 2 && this.isLandscape) {
                 console.log('Fullscreen detected! Auto-entering VR...');
@@ -250,9 +252,6 @@ export class VROverlay {
         // Check on resize (Safari fires this when toolbar hides)
         window.addEventListener('resize', this.fullscreenHandler);
 
-        // Also use scroll to trigger the toolbar hide
-        window.addEventListener('scroll', this.fullscreenHandler);
-
         // Touch events for swipe detection
         this.touchStartY = 0;
         this.touchHandler = (e) => {
@@ -260,16 +259,80 @@ export class VROverlay {
                 this.touchStartY = e.touches[0].clientY;
             } else if (e.type === 'touchend') {
                 const touchEndY = e.changedTouches[0].clientY;
-                const swipeUp = this.touchStartY - touchEndY > 50;
+                const swipeUp = this.touchStartY - touchEndY > 30;
                 if (swipeUp) {
-                    // Give Safari a moment to hide the toolbar
-                    setTimeout(() => this.fullscreenHandler(), 300);
+                    this.swipeAttempts++;
+                    // Give Safari time to hide toolbar, then check
+                    setTimeout(() => {
+                        this.fullscreenHandler();
+
+                        // If still not fullscreen after swipe, show retry hint
+                        const currentHeight = window.innerHeight;
+                        const heightDiff = currentHeight - this.initialViewportHeight;
+                        const screenH = Math.max(screen.availHeight, screen.height);
+                        const isFullscreen = heightDiff > 50 && (currentHeight >= screenH - 40);
+
+                        if (!isFullscreen && this.currentStep === 2) {
+                            this.showRetryHint();
+                            // Reset scroll so user can try again
+                            window.scrollTo(0, 0);
+                            setTimeout(() => window.scrollTo(0, 1), 200);
+                        }
+                    }, 500);
                 }
             }
         };
 
-        this.overlay.addEventListener('touchstart', this.touchHandler);
-        this.overlay.addEventListener('touchend', this.touchHandler);
+        this.overlay.addEventListener('touchstart', this.touchHandler, { passive: true });
+        this.overlay.addEventListener('touchend', this.touchHandler, { passive: true });
+    }
+
+    showRetryHint() {
+        let hint = this.overlay.querySelector('.swipe-retry-hint');
+        if (!hint) {
+            hint = document.createElement('div');
+            hint.className = 'swipe-retry-hint';
+            Object.assign(hint.style, {
+                position: 'fixed',
+                bottom: '30px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(234, 67, 53, 0.95)',
+                color: 'white',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                zIndex: '10001',
+                textAlign: 'center',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                animation: 'pulse-hint 1.5s ease-in-out infinite'
+            });
+            hint.innerHTML = '☝️ Geser ke atas lagi, pelan-pelan';
+
+            // Add animation keyframes
+            if (!document.querySelector('#swipe-hint-anim')) {
+                const style = document.createElement('style');
+                style.id = 'swipe-hint-anim';
+                style.textContent = `
+                    @keyframes pulse-hint {
+                        0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
+                        50% { transform: translateX(-50%) scale(1.05); opacity: 0.85; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            this.overlay.appendChild(hint);
+        }
+
+        // Auto-hide after 3 seconds
+        hint.style.display = 'block';
+        hint.style.opacity = '1';
+        clearTimeout(this.hintTimeout);
+        this.hintTimeout = setTimeout(() => {
+            if (hint) hint.style.opacity = '0';
+        }, 3000);
     }
 
     stopFullscreenWatch() {
