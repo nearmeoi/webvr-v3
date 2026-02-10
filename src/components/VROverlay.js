@@ -46,6 +46,7 @@ export class VROverlay {
 
     hide() {
         this.overlay.style.display = 'none';
+        document.body.classList.remove('ios-scroll-active'); // Deactivate scroll logic
         this.stopOrientationWatch();
     }
 
@@ -155,6 +156,9 @@ export class VROverlay {
     renderLandscapeInstruction() {
         // Record initial height to detect toolbar hide
         this.initialViewportHeight = window.innerHeight;
+
+        // Toggle body scroll to allow address bar hiding (iOS fix)
+        document.body.classList.add('ios-scroll-active');
 
         this.overlay.innerHTML = `
             <div class="vr-overlay-content landscape">
@@ -283,6 +287,7 @@ export class VROverlay {
 
     dispose() {
         this.stopOrientationWatch();
+        document.body.classList.remove('ios-scroll-active'); // Ensure cleanup
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.parentNode.removeChild(this.overlay);
         }

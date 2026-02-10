@@ -510,3 +510,11 @@ canvas {
     padding: 14px 50px;
     font-size: 1.1rem;
 }
+
+/* Helper for iOS Fullscreen Scroll Trick */
+body.ios-scroll-active {
+    overflow-y: auto !important;
+    height: 140vh !important;
+    /* Taller than screen to allow scroll */
+    position: relative !important;
+}
