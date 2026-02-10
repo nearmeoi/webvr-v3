@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { DeviceOrientationControls } from 'three/addons/controls/DeviceOrientationControls.js';
+import { DeviceOrientationControls } from './utils/DeviceOrientationControls.js';
 import { GazeController } from './components/GazeController.js';
 import { PanoramaViewer } from './components/PanoramaViewer.js';
 import { CardboardModeManager } from './components/CardboardModeManager.js';
