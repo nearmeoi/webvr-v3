@@ -65,19 +65,18 @@ export class VROverlay {
     renderStep1() {
         this.overlay.innerHTML = `
             <div class="vr-overlay-content">
-                <div class="vr-overlay-icon">
-                    <svg viewBox="0 0 24 24" fill="#EA4335" width="80" height="80">
-                        <path d="M20.74 6H3.21C2.55 6 2 6.57 2 7.28v10.44c0 .7.55 1.28 1.23 1.28h4.79c.52 0 .98-.34 1.14-.84l.99-3.11c.23-.71.88-1.19 1.62-1.19h.46c.74 0 1.39.48 1.62 1.19l.99 3.11c.16.5.63.84 1.14.84h4.79c.68 0 1.23-.57 1.23-1.28V7.28c0-.71-.55-1.28-1.26-1.28zM7.5 14.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm9 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
-                    </svg>
-                    <span class="google-cardboard-text">Google<br>Cardboard</span>
+                <div class="vr-overlay-logo">
+                    <svg viewBox="0 0 24 24" fill="#EA4335"><path d="M20.74 6H3.21C2.55 6 2 6.57 2 7.28v10.44c0 .7.55 1.28 1.23 1.28h4.79c.52 0 .98-.34 1.14-.84l.99-3.11c.23-.71.88-1.19 1.62-1.19h.46c.74 0 1.39.48 1.62 1.19l.99 3.11c.16.5.63.84 1.14.84h4.79c.68 0 1.23-.57 1.23-1.28V7.28c0-.71-.55-1.28-1.26-1.28zM7.5 14.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm9 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+                    <span>Google<br>Cardboard</span>
                 </div>
                 <p class="vr-overlay-desc">Untuk melanjutkan ke mode VR, izinkan akses sensor gyroscope dan accelerometer.</p>
-                <button id="vr-step1-continue" class="vr-overlay-btn primary">IZINKAN</button>
-                <button id="vr-step1-cancel" class="vr-overlay-btn secondary">BATAL</button>
+                <div class="vr-overlay-actions">
+                    <button id="vr-step1-continue" class="vr-overlay-btn primary">IZINKAN</button>
+                    <button id="vr-step1-cancel" class="vr-overlay-btn secondary">BATAL</button>
+                </div>
             </div>
         `;
 
-        // Bind events
         this.overlay.querySelector('#vr-step1-continue').addEventListener('click', () => {
             this.requestSensorPermission();
         });
@@ -139,20 +138,18 @@ export class VROverlay {
     renderPortraitInstruction() {
         this.overlay.innerHTML = `
             <div class="vr-overlay-content">
-                <div class="vr-overlay-icon">
-                    <svg viewBox="0 0 24 24" fill="#EA4335" width="64" height="64" style="position: absolute; top: 20px; right: 20px;">
-                        <path d="M20.74 6H3.21C2.55 6 2 6.57 2 7.28v10.44c0 .7.55 1.28 1.23 1.28h4.79c.52 0 .98-.34 1.14-.84l.99-3.11c.23-.71.88-1.19 1.62-1.19h.46c.74 0 1.39.48 1.62 1.19l.99 3.11c.16.5.63.84 1.14.84h4.79c.68 0 1.23-.57 1.23-1.28V7.28c0-.71-.55-1.28-1.26-1.28zM7.5 14.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm9 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
-                    </svg>
-                    <span class="google-cardboard-label">Google Cardboard</span>
+                <div class="vr-overlay-corner-logo">
+                    <svg viewBox="0 0 24 24" fill="#EA4335"><path d="M20.74 6H3.21C2.55 6 2 6.57 2 7.28v10.44c0 .7.55 1.28 1.23 1.28h4.79c.52 0 .98-.34 1.14-.84l.99-3.11c.23-.71.88-1.19 1.62-1.19h.46c.74 0 1.39.48 1.62 1.19l.99 3.11c.16.5.63.84 1.14.84h4.79c.68 0 1.23-.57 1.23-1.28V7.28c0-.71-.55-1.28-1.26-1.28zM7.5 14.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm9 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+                    <span>Google Cardboard</span>
                 </div>
-                <div class="rotate-icon">
-                    <svg viewBox="0 0 100 100" width="100" height="100">
-                        <rect x="25" y="10" width="50" height="80" rx="5" fill="none" stroke="#333" stroke-width="3"/>
-                        <path d="M50 5 L60 15 L55 15 L55 25 L45 25 L45 15 L40 15 Z" fill="#333"/>
-                        <text x="50" y="60" text-anchor="middle" font-size="10" fill="#666">90°</text>
+                <div class="vr-overlay-center">
+                    <svg class="vr-overlay-gesture-icon" viewBox="0 0 100 100">
+                        <rect x="30" y="15" width="40" height="70" rx="5" fill="none" stroke="#555" stroke-width="2.5"/>
+                        <path d="M50 8 L58 16 L54 16 L54 24 L46 24 L46 16 L42 16 Z" fill="#555"/>
+                        <text x="50" y="58" text-anchor="middle" font-size="10" fill="#999">90°</text>
                     </svg>
+                    <p class="vr-overlay-instruction">Putar ponsel ke mode<br><strong>Landscape</strong></p>
                 </div>
-                <p class="vr-overlay-instruction">Putar ponsel ke mode<br><strong>Landscape</strong></p>
             </div>
         `;
     }
@@ -181,22 +178,21 @@ export class VROverlay {
         setTimeout(() => window.scrollTo(0, 1), 100);
 
         this.overlay.innerHTML = `
-            <div class="vr-overlay-content landscape">
-                <div class="vr-overlay-icon-corner">
-                    <svg viewBox="0 0 24 24" fill="#EA4335" width="48" height="48">
-                        <path d="M20.74 6H3.21C2.55 6 2 6.57 2 7.28v10.44c0 .7.55 1.28 1.23 1.28h4.79c.52 0 .98-.34 1.14-.84l.99-3.11c.23-.71.88-1.19 1.62-1.19h.46c.74 0 1.39.48 1.62 1.19l.99 3.11c.16.5.63.84 1.14.84h4.79c.68 0 1.23-.57 1.23-1.28V7.28c0-.71-.55-1.28-1.26-1.28zM7.5 14.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm9 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
-                    </svg>
+            <div class="vr-overlay-content">
+                <div class="vr-overlay-corner-logo">
+                    <svg viewBox="0 0 24 24" fill="#EA4335"><path d="M20.74 6H3.21C2.55 6 2 6.57 2 7.28v10.44c0 .7.55 1.28 1.23 1.28h4.79c.52 0 .98-.34 1.14-.84l.99-3.11c.23-.71.88-1.19 1.62-1.19h.46c.74 0 1.39.48 1.62 1.19l.99 3.11c.16.5.63.84 1.14.84h4.79c.68 0 1.23-.57 1.23-1.28V7.28c0-.71-.55-1.28-1.26-1.28zM7.5 14.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm9 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
                     <span>Google Cardboard</span>
                 </div>
-                <div class="swipe-icon">
-                    <svg viewBox="0 0 100 100" width="80" height="80">
-                        <path d="M50 80 L50 20" stroke="#333" stroke-width="3" fill="none"/>
-                        <path d="M35 35 L50 20 L65 35" stroke="#333" stroke-width="3" fill="none"/>
-                        <ellipse cx="50" cy="85" rx="15" ry="10" fill="none" stroke="#333" stroke-width="2"/>
+                <div class="vr-overlay-center">
+                    <svg class="vr-overlay-gesture-icon" viewBox="0 0 80 100">
+                        <!-- Hand -->
+                        <ellipse cx="40" cy="72" rx="16" ry="12" fill="none" stroke="#555" stroke-width="2"/>
+                        <line x1="40" y1="60" x2="40" y2="22" stroke="#555" stroke-width="2.5"/>
+                        <!-- Arrow -->
+                        <path d="M30 32 L40 18 L50 32" stroke="#555" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
                     </svg>
+                    <p class="vr-overlay-instruction">Geser ke atas untuk masuk<br><strong>Fullscreen Mode</strong></p>
                 </div>
-                <p class="vr-overlay-instruction">Geser ke atas untuk masuk<br><strong>Fullscreen Mode</strong></p>
-                <p class="vr-overlay-hint">atau ketuk tombol di bawah</p>
                 <button id="vr-step2-enter" class="vr-overlay-btn primary">MASUK VR</button>
             </div>
         `;
