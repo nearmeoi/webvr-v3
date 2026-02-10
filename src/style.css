@@ -523,8 +523,12 @@ body.ios-scroll-active {
     -webkit-overflow-scrolling: touch;
 }
 
-/* Overlay must be absolute (not fixed) during scroll mode
-   so touch events pass through to the page scroll */
+/* Overlay must be sticky (not fixed/absolute) during scroll mode.
+   Sticky = stays visually pinned at top, but page CAN scroll,
+   which triggers iOS Safari address bar hiding */
 body.ios-scroll-active #vr-instruction-overlay {
-    position: absolute !important;
+    position: sticky !important;
+    top: 0;
+    height: 100vh !important;
+    min-height: 100vh !important;
 }
