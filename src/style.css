@@ -512,9 +512,19 @@ canvas {
 }
 
 /* Helper for iOS Fullscreen Scroll Trick */
+/* Must apply to BOTH html and body to override overflow:hidden */
+html.ios-scroll-active,
 body.ios-scroll-active {
     overflow-y: auto !important;
-    height: 140vh !important;
-    /* Taller than screen to allow scroll */
+    overflow-x: hidden !important;
+    height: auto !important;
+    min-height: 100vh;
     position: relative !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Overlay must be absolute (not fixed) during scroll mode
+   so touch events pass through to the page scroll */
+body.ios-scroll-active #vr-instruction-overlay {
+    position: absolute !important;
 }

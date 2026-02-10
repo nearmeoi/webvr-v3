@@ -46,8 +46,19 @@ export class VROverlay {
 
     hide() {
         this.overlay.style.display = 'none';
-        document.body.classList.remove('ios-scroll-active'); // Deactivate scroll logic
+        this.cleanupScrollMode();
         this.stopOrientationWatch();
+    }
+
+    // Remove all iOS scroll-related modifications
+    cleanupScrollMode() {
+        document.documentElement.classList.remove('ios-scroll-active');
+        document.body.classList.remove('ios-scroll-active');
+        if (this.scrollSpacer && this.scrollSpacer.parentNode) {
+            this.scrollSpacer.parentNode.removeChild(this.scrollSpacer);
+            this.scrollSpacer = null;
+        }
+        window.scrollTo(0, 0);
     }
 
     // Step 1: VR Mode Permission
@@ -157,8 +168,26 @@ export class VROverlay {
         // Record initial height to detect toolbar hide
         this.initialViewportHeight = window.innerHeight;
 
-        // Toggle body scroll to allow address bar hiding (iOS fix)
+        // iOS Safari: enable page scroll to hide address bar
+        // 1. Add scroll classes to html + body (overrides overflow:hidden)
+        document.documentElement.classList.add('ios-scroll-active');
         document.body.classList.add('ios-scroll-active');
+
+        // 2. Add spacer element to make page taller than viewport
+        if (!this.scrollSpacer) {
+            this.scrollSpacer = document.createElement('div');
+            this.scrollSpacer.id = 'ios-scroll-spacer';
+            Object.assign(this.scrollSpacer.style, {
+                width: '100%',
+                height: '50vh',
+                pointerEvents: 'none',
+                background: 'transparent'
+            });
+            document.body.appendChild(this.scrollSpacer);
+        }
+
+        // 3. Prime the scroll (triggers iOS to allow address bar hide)
+        setTimeout(() => window.scrollTo(0, 1), 100);
 
         this.overlay.innerHTML = `
             <div class="vr-overlay-content landscape">
@@ -287,7 +316,7 @@ export class VROverlay {
 
     dispose() {
         this.stopOrientationWatch();
-        document.body.classList.remove('ios-scroll-active'); // Ensure cleanup
+        this.cleanupScrollMode();
         if (this.overlay && this.overlay.parentNode) {
             this.overlay.parentNode.removeChild(this.overlay);
         }
