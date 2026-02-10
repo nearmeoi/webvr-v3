@@ -155,13 +155,15 @@ export class VROverlay {
     }
 
     renderLandscapeInstruction() {
+        // MUST record height BEFORE any CSS changes
+        this.initialViewportHeight = window.innerHeight;
+        console.log(`Initial viewport height recorded: ${this.initialViewportHeight}`);
 
-        // iOS Safari: enable page scroll to hide address bar
-        // 1. Add scroll classes to html + body (overrides overflow:hidden)
+        // Enable page scroll to hide address bar
         document.documentElement.classList.add('ios-scroll-active');
         document.body.classList.add('ios-scroll-active');
 
-        // 2. Add spacer element to make page taller than viewport
+        // Add spacer element to make page taller than viewport
         if (!this.scrollSpacer) {
             this.scrollSpacer = document.createElement('div');
             this.scrollSpacer.id = 'ios-scroll-spacer';
@@ -174,7 +176,7 @@ export class VROverlay {
             document.body.appendChild(this.scrollSpacer);
         }
 
-        // 3. Prime the scroll (triggers iOS to allow address bar hide)
+        // Prime the scroll
         setTimeout(() => window.scrollTo(0, 1), 100);
 
         this.overlay.innerHTML = `
@@ -201,7 +203,7 @@ export class VROverlay {
         const enterBtn = this.overlay.querySelector('#vr-step2-enter');
         if (enterBtn) {
             enterBtn.addEventListener('click', () => {
-                console.log('iOS fallback button clicked');
+                console.log('Fallback button clicked');
                 this.stopFullscreenWatch();
                 this.hide();
                 if (this.onEnterVR) this.onEnterVR();
@@ -213,42 +215,54 @@ export class VROverlay {
     }
 
 
-    // Detect when Safari toolbar is hidden (viewport height increases)
+    // Detect when browser toolbar is hidden
     startFullscreenWatch() {
         this.swipeAttempts = 0;
-        this.readyForFullscreen = false;
 
-        // Delay readiness to prevent CSS layout changes from triggering false detection
-        setTimeout(() => {
-            this.initialViewportHeight = window.innerHeight;
-            this.readyForFullscreen = true;
-            console.log(`Fullscreen watch ready. Initial height: ${this.initialViewportHeight}`);
-        }, 600);
-
+        // Use the height recorded BEFORE CSS changes
+        const baseHeight = this.initialViewportHeight;
 
         this.fullscreenHandler = () => {
-            if (!this.readyForFullscreen) return; // Guard: ignore until CSS settles
+            if (this.currentStep !== 2 || !this.isLandscape) return;
 
-            const currentHeight = window.innerHeight;
-            const heightDiff = currentHeight - this.initialViewportHeight;
+            const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            const currentHeight = Math.max(window.innerHeight, vh);
+            const heightDiff = currentHeight - baseHeight;
 
-            // Stricter check: require significant height increase
-            // AND viewport must be close to full screen height
-            const screenH = Math.max(screen.availHeight, screen.height);
-            const isFullscreen = heightDiff > 50 && (currentHeight >= screenH - 40);
+            // In landscape, the "screen height" is the shorter dimension
+            const screenShort = Math.min(screen.width, screen.height);
+            const screenLong = Math.max(screen.width, screen.height);
 
-            console.log(`Viewport: ${this.initialViewportHeight} -> ${currentHeight}, diff: ${heightDiff}, screenH: ${screenH}, fullscreen: ${isFullscreen}`);
+            // Fullscreen = height grew significantly OR viewport is close to screen edge
+            const isFullscreen = heightDiff > 30 ||
+                currentHeight >= screenShort - 20 ||
+                currentHeight >= screenLong - 20;
 
-            if (isFullscreen && this.currentStep === 2 && this.isLandscape) {
-                console.log('Fullscreen detected! Auto-entering VR...');
+            console.log(`FS check: base=${baseHeight}, now=${currentHeight}, diff=${heightDiff}, screenShort=${screenShort}, full=${isFullscreen}`);
+
+            if (isFullscreen) {
+                console.log('Fullscreen detected! Entering VR...');
                 this.stopFullscreenWatch();
                 this.hide();
                 if (this.onEnterVR) this.onEnterVR();
             }
         };
 
-        // Check on resize (Safari fires this when toolbar hides)
-        window.addEventListener('resize', this.fullscreenHandler);
+        // Don't check immediately — wait for CSS layout to settle
+        setTimeout(() => {
+            // Listen to resize events (iOS Safari)
+            window.addEventListener('resize', this.fullscreenHandler);
+
+            // Listen to visualViewport resize (Android Chrome)
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', this.fullscreenHandler);
+            }
+
+            // Periodic polling fallback (some browsers don't fire events)
+            this.fullscreenPollInterval = setInterval(() => {
+                this.fullscreenHandler();
+            }, 500);
+        }, 400);
 
         // Touch events for swipe detection
         this.touchStartY = 0;
@@ -260,12 +274,10 @@ export class VROverlay {
                 const swipeUp = this.touchStartY - touchEndY > 30;
                 if (swipeUp) {
                     this.swipeAttempts++;
-                    // Give Safari time to hide toolbar, then check
+                    // Check after a delay for toolbar to hide
                     setTimeout(() => {
                         this.fullscreenHandler();
-
-                        // If still not fullscreen, reset scroll so user can try again
-                        // The existing overlay stays visible as instruction
+                        // If still on step 2 (not entered VR), reset scroll for retry
                         if (this.currentStep === 2) {
                             window.scrollTo(0, 0);
                             setTimeout(() => window.scrollTo(0, 1), 200);
@@ -283,7 +295,14 @@ export class VROverlay {
         if (this.fullscreenHandler) {
             window.removeEventListener('resize', this.fullscreenHandler);
             window.removeEventListener('scroll', this.fullscreenHandler);
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', this.fullscreenHandler);
+            }
             this.fullscreenHandler = null;
+        }
+        if (this.fullscreenPollInterval) {
+            clearInterval(this.fullscreenPollInterval);
+            this.fullscreenPollInterval = null;
         }
         if (this.touchHandler && this.overlay) {
             this.overlay.removeEventListener('touchstart', this.touchHandler);
