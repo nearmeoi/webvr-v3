@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { TOUR_DATA } from '../data/tourData.js'; // Import data for reference if needed
 import { CanvasUI } from '../utils/CanvasUI.js';
 import { AudioControls } from './AudioControls.js';
-import { CONFIG } from '../config.js';
+import { CONFIG, API_BASE } from '../config.js';
 // import HOTSPOTS_DATA from '../data/hotspots.json'; // Removed static import
 import { SCENE_MAP } from '../data/sceneMap.js';
 
@@ -70,7 +70,7 @@ export class PanoramaViewer {
 
     async fetchHotspots() {
         try {
-            const res = await fetch('/api/get-hotspots');
+            const res = await fetch(`${API_BASE}/api/get-hotspots`);
             if (res.ok) {
                 this.hotspotsData = await res.json();
                 console.log('Hotspots loaded dynamically:', Object.keys(this.hotspotsData).length, ' entries');

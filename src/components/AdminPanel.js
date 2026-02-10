@@ -1,4 +1,5 @@
 import { SCENE_MAP } from '../data/sceneMap.js';
+import { API_BASE } from '../config.js';
 import SCENE_LIST from '../data/scene_list.json';
 
 export class AdminPanel {
@@ -679,7 +680,7 @@ export class AdminPanel {
             this.saveBtn.textContent = 'Saving...';
             this.saveBtn.disabled = true;
 
-            const res = await fetch('/api/save-hotspots', {
+            const res = await fetch(`${API_BASE}/api/save-hotspots`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data, null, 2)

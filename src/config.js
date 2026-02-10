@@ -3,6 +3,10 @@
  * Centralized constants for the WebVR application
  */
 
+// API Base URL: kosong saat development (pakai Vite proxy), pakai domain production saat deploy
+const isDev = import.meta.env?.DEV ?? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+export const API_BASE = isDev ? '' : 'https://api.neardev.my.id';
+
 export const CONFIG = {
     // Camera FOV Settings
     fov: {

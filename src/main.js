@@ -93,7 +93,10 @@ class App {
 
         this.renderer = new THREE.WebGLRenderer({
             antialias: true,
-            preserveDrawingBuffer: true // Required for screenshot transitions
+            preserveDrawingBuffer: true, // Required for screenshot transitions
+            // PENTING: Paksa WebGL1 agar polyfill WebXR (yang memanggil
+            // canvas.getContext('webgl')) tidak konflik dengan konteks webgl2
+            forceWebGL1: true
         });
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -173,6 +176,11 @@ class App {
             this.isVRMode = false;
             if (this.panoramaViewer) this.panoramaViewer.setVRMode(false);
             if (this.vrButton) this.vrButton.style.display = 'block';
+
+            // Pulihkan state renderer setelah sesi VR polyfill berakhir
+            // untuk mencegah error "drawElements: no buffer"
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.state.reset();
         });
     }
 
