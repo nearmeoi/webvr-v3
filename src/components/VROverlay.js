@@ -231,12 +231,10 @@ export class VROverlay {
 
             // In landscape, the "screen height" is the shorter dimension
             const screenShort = Math.min(screen.width, screen.height);
-            const screenLong = Math.max(screen.width, screen.height);
 
-            // Fullscreen = height grew significantly OR viewport is close to screen edge
-            const isFullscreen = heightDiff > 30 ||
-                currentHeight >= screenShort - 20 ||
-                currentHeight >= screenLong - 20;
+            // Fullscreen = height grew by at least 40px AND viewport is near screen edge
+            // Both conditions must be true to avoid false positives
+            const isFullscreen = heightDiff > 40 && currentHeight >= screenShort - 30;
 
             console.log(`FS check: base=${baseHeight}, now=${currentHeight}, diff=${heightDiff}, screenShort=${screenShort}, full=${isFullscreen}`);
 
@@ -262,7 +260,7 @@ export class VROverlay {
             this.fullscreenPollInterval = setInterval(() => {
                 this.fullscreenHandler();
             }, 500);
-        }, 400);
+        }, 800);
 
         // Touch events for swipe detection
         this.touchStartY = 0;
