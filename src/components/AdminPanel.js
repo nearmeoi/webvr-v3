@@ -355,45 +355,121 @@ export class AdminPanel {
         iconPreviewWrapper.appendChild(iconPreview);
         this.form.appendChild(iconPreviewWrapper);
 
-        // Target Header
-        const targetHeader = document.createElement('div');
-        Object.assign(targetHeader.style, {
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginTop: '16px',
-            marginBottom: '8px'
-        });
-        targetHeader.innerHTML = `<span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; font-weight: 600;">Target</span>`;
+        if (hotspot.type === 'info') {
+            // Title
+            this.form.appendChild(this.createLabel('Title'));
+            this.form.appendChild(this.createInput(hotspot.title || hotspot.label, (val) => {
+                hotspot.title = val;
+                this.markDirty();
+            }));
 
-        const toggleBtn = document.createElement('button');
-        toggleBtn.textContent = this.useCustomPath ? 'Use List' : 'Custom Path';
-        Object.assign(toggleBtn.style, {
-            background: '#f3f4f6',
-            border: '1px solid #d1d5db',
-            borderRadius: '4px',
-            color: '#4b5563',
-            fontSize: '10px',
-            padding: '4px 8px',
-            cursor: 'pointer',
-            fontWeight: '500'
-        });
-        toggleBtn.onclick = () => {
-            this.useCustomPath = !this.useCustomPath;
-            this.renderForm(hotspot);
-        };
-        targetHeader.appendChild(toggleBtn);
-        this.form.appendChild(targetHeader);
+            // Description
+            this.form.appendChild(this.createLabel('Description'));
+            const descArea = document.createElement('textarea');
+            descArea.value = hotspot.description || '';
+            Object.assign(descArea.style, {
+                width: '100%',
+                padding: '10px 12px',
+                background: '#ffffff',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                color: '#111827',
+                fontSize: '13px',
+                boxSizing: 'border-box',
+                outline: 'none',
+                fontFamily: "'Roboto', sans-serif",
+                minHeight: '80px',
+                resize: 'vertical'
+            });
+            descArea.oninput = (e) => {
+                hotspot.description = e.target.value;
+                this.markDirty();
+            };
+            this.form.appendChild(descArea);
 
-        if (this.useCustomPath) {
-            const pathInput = this.createInput(hotspot.target || '', (val) => {
+            // CUSTOMIZATION FIELDS
+            this.form.appendChild(this.createLabel('Panel Width'));
+            this.form.appendChild(this.createSlider(hotspot.infoWidth || 1.0, 0.5, 3.0, 0.1, (val) => {
+                hotspot.infoWidth = val;
+                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
+                this.markDirty();
+            }));
+
+            this.form.appendChild(this.createLabel('Panel Height'));
+            this.form.appendChild(this.createSlider(hotspot.infoHeight || 0.8, 0.5, 2.5, 0.1, (val) => {
+                hotspot.infoHeight = val;
+                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
+                this.markDirty();
+            }));
+
+            this.form.appendChild(this.createLabel('Background Color'));
+            this.form.appendChild(this.createColorPicker(hotspot.infoColor || '#1e293b', (val) => {
+                hotspot.infoColor = val;
+                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
+                this.markDirty();
+            }));
+
+            this.form.appendChild(this.createLabel('Opacity'));
+            this.form.appendChild(this.createSlider(hotspot.infoOpacity !== undefined ? hotspot.infoOpacity : 0.95, 0, 1, 0.05, (val) => {
+                hotspot.infoOpacity = val;
+                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
+                this.markDirty();
+            }));
+
+        } else if (hotspot.type === 'photo') {
+            // Photo URL
+            this.form.appendChild(this.createLabel('Photo URL'));
+            this.form.appendChild(this.createInput(hotspot.target || '', (val) => {
                 hotspot.target = val;
                 this.markDirty();
-            });
-            pathInput.placeholder = 'assets/folder/scene.jpg';
-            this.form.appendChild(pathInput);
+            }));
+            // Caption
+            this.form.appendChild(this.createLabel('Caption'));
+            this.form.appendChild(this.createInput(hotspot.description || '', (val) => {
+                hotspot.description = val;
+                this.markDirty();
+            }));
         } else {
-            this.form.appendChild(this.createSceneSelector(hotspot));
+            // Navigation Target
+            const targetHeader = document.createElement('div');
+            Object.assign(targetHeader.style, {
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginTop: '16px',
+                marginBottom: '8px'
+            });
+            targetHeader.innerHTML = `<span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; font-weight: 600;">Target Scene</span>`;
+
+            const toggleBtn = document.createElement('button');
+            toggleBtn.textContent = this.useCustomPath ? 'Use List' : 'Custom Path';
+            Object.assign(toggleBtn.style, {
+                background: '#f3f4f6',
+                border: '1px solid #d1d5db',
+                borderRadius: '4px',
+                color: '#4b5563',
+                fontSize: '10px',
+                padding: '4px 8px',
+                cursor: 'pointer',
+                fontWeight: '500'
+            });
+            toggleBtn.onclick = () => {
+                this.useCustomPath = !this.useCustomPath;
+                this.renderForm(hotspot);
+            };
+            targetHeader.appendChild(toggleBtn);
+            this.form.appendChild(targetHeader);
+
+            if (this.useCustomPath) {
+                const pathInput = this.createInput(hotspot.target || '', (val) => {
+                    hotspot.target = val;
+                    this.markDirty();
+                });
+                pathInput.placeholder = 'assets/folder/scene.jpg';
+                this.form.appendChild(pathInput);
+            } else {
+                this.form.appendChild(this.createSceneSelector(hotspot));
+            }
         }
 
         // Delete
@@ -403,17 +479,18 @@ export class AdminPanel {
             width: '100%',
             marginTop: '24px',
             padding: '12px',
-            background: 'transparent',
-            border: '1px solid #fee2e2',
+            background: '#dc2626',
+            border: 'none',
             borderRadius: '8px',
-            color: '#ef4444',
+            color: '#ffffff',
             fontSize: '13px',
             fontWeight: '600',
             cursor: 'pointer',
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
+            boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)'
         });
-        deleteBtn.onmouseover = () => { deleteBtn.style.background = '#fef2f2'; deleteBtn.style.borderColor = '#fecaca'; };
-        deleteBtn.onmouseout = () => { deleteBtn.style.background = 'transparent'; deleteBtn.style.borderColor = '#fee2e2'; };
+        deleteBtn.onmouseover = () => { deleteBtn.style.background = '#b91c1c'; deleteBtn.style.boxShadow = '0 4px 6px rgba(185, 28, 28, 0.3)'; };
+        deleteBtn.onmouseout = () => { deleteBtn.style.background = '#dc2626'; deleteBtn.style.boxShadow = '0 2px 4px rgba(220, 38, 38, 0.2)'; };
         deleteBtn.onclick = () => {
             if (confirm('Delete this hotspot?')) {
                 this.viewer.removeHotspot(hotspot);

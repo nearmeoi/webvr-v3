@@ -11,6 +11,8 @@ import { iOSFullscreenHelper } from './utils/iOSFullscreenHelper.js';
 import { VROverlay } from './components/VROverlay.js';
 import { CONFIG } from './config.js';
 import { TOUR_DATA } from './data/tourData.js';
+import { InfoOverlay } from './components/InfoOverlay.js';
+import { InfoPanel3D } from './components/InfoPanel3D.js';
 
 
 
@@ -361,6 +363,12 @@ class App {
         // Gaze controller
         this.gazeController = new GazeController(this.scene, this.camera, this.renderer);
 
+        // Info Overlay
+        this.infoOverlay = new InfoOverlay();
+
+        // 3D Info Panel (VR Mode)
+        this.infoPanel3D = new InfoPanel3D(this.camera, this.scene);
+
         // Panorama viewer
         this.panoramaViewer = new PanoramaViewer(
             this.scene,
@@ -368,6 +376,8 @@ class App {
             this.camera,
             this.renderer
         );
+        this.panoramaViewer.setInfoOverlay(this.infoOverlay);
+        this.panoramaViewer.setInfoPanel3D(this.infoPanel3D);
     }
 
     initEventListeners() {
@@ -732,6 +742,10 @@ class App {
                 await el.requestFullscreen();
             } else if (el.webkitRequestFullscreen) {
                 el.webkitRequestFullscreen();
+            } else if (el.mozRequestFullScreen) {
+                el.mozRequestFullScreen();
+            } else if (el.msRequestFullscreen) {
+                el.msRequestFullscreen();
             }
         } catch (e) {
             console.log('Fullscreen blocked:', e);
@@ -793,6 +807,8 @@ class App {
 
         // Update components
         this.panoramaViewer.update(delta);
+        if (this.infoPanel3D) this.infoPanel3D.update(delta);
+
 
         // Render (WebVR, stereo, or normal)
         let usedWebVR = false;
@@ -812,7 +828,8 @@ class App {
     getInteractables() {
         const list = [];
         // Only panorama viewer's group (hotspots and dock) are interactable now
-        if (this.panoramaViewer.group.visible) list.push(this.panoramaViewer.group);
+        if (this.panoramaViewer && this.panoramaViewer.group.visible) list.push(this.panoramaViewer.group);
+        if (this.infoPanel3D && this.infoPanel3D.group.visible) list.push(this.infoPanel3D.group);
         return list;
     }
 

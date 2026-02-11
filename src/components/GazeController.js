@@ -60,12 +60,6 @@ export class GazeController {
     }
 
     update(scene, interactables, delta) {
-        if (this.triggerLockTime > 0) {
-            this.triggerLockTime -= delta;
-            this.clearHover();
-            return;
-        }
-
         // Use world position/direction for robust VR gaze
         const origin = new THREE.Vector3();
         const direction = new THREE.Vector3();
@@ -82,12 +76,19 @@ export class GazeController {
             this.camera.getWorldDirection(direction);
         }
 
-        this.raycaster.set(origin, direction);
-        this.raycaster.camera = currentCamera; // Critical for Sprite raycasting
-
-        // Position the reticle mesh at a fixed distance from camera
+        // Always update reticle position
         this.mesh.position.copy(origin).add(direction.multiplyScalar(this.reticleDistance));
         this.mesh.lookAt(origin); // Orient towards camera
+
+        if (this.triggerLockTime > 0) {
+            this.triggerLockTime -= delta;
+            this.clearHover();
+            // Reticle position is already updated above
+            return;
+        }
+
+        this.raycaster.set(origin, direction);
+        this.raycaster.camera = currentCamera; // Critical for Sprite raycasting
 
         // Force update world matrices before raycasting
         if (scene) scene.updateMatrixWorld(true);

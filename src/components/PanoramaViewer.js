@@ -68,6 +68,14 @@ export class PanoramaViewer {
         this.fetchHotspots(); // Fetch on init
     }
 
+    setInfoOverlay(overlay) {
+        this.infoOverlay = overlay;
+    }
+
+    setInfoPanel3D(panel) {
+        this.infoPanel3D = panel;
+    }
+
     async fetchHotspots() {
         try {
             const res = await fetch(`${API_BASE}/api/get-hotspots`);
@@ -670,7 +678,13 @@ export class PanoramaViewer {
                 textSize: data.textSize !== undefined ? data.textSize : 1.0,
                 color: data.color || null,
                 icon_url: data.icon_url || null,
-                labelOffset: data.labelOffset !== undefined ? data.labelOffset : 0
+                labelOffset: data.labelOffset !== undefined ? data.labelOffset : 0,
+                title: data.title || '',
+                description: data.description || '',
+                infoWidth: data.infoWidth || 1.0,
+                infoHeight: data.infoHeight || 0.8,
+                infoColor: data.infoColor || '#1e293b',
+                infoOpacity: data.infoOpacity !== undefined ? data.infoOpacity : 0.95
             };
         });
 
@@ -1301,6 +1315,14 @@ export class PanoramaViewer {
                 } else if (data.type === 'info') {
                     // Info logic
                     console.log('Open Info:', data.target_name);
+
+                    if (this.infoPanel3D) {
+                        // Always show 3D Panel (Desktop & VR) as requested
+                        this.infoPanel3D.show(data);
+                    } else if (this.infoOverlay) {
+                        // Fallback
+                        this.infoOverlay.show(data);
+                    }
                 }
             }
         };
@@ -1406,6 +1428,11 @@ export class PanoramaViewer {
         // because the SubMenu handles it, or use Gaze.
         // For now, let's keep it simple.
         this.setBackButtonVisibility(!isVR);
+
+        // If exiting VR, hide 3D panel
+        if (!isVR && this.infoPanel3D) {
+            this.infoPanel3D.hide();
+        }
     }
 
     /**
