@@ -3,6 +3,7 @@ import * as THREE from 'three';
 
 export class InfoPanel3D {
     constructor(camera, scene) {
+        console.log('[InfoPanel3D] Constructor called');
         this.camera = camera;
         this.scene = scene;
         this.group = new THREE.Group();
@@ -17,10 +18,15 @@ export class InfoPanel3D {
         this.currentPageIndex = 0;
         this.currentData = null;
 
+        if (!camera || !scene) {
+            console.error('[InfoPanel3D] ERROR: Camera or Scene missing!');
+        }
+
         this.init();
     }
 
     init() {
+        console.log('[InfoPanel3D] Initializing panel');
         // Plane for content
         this.geometry = new THREE.PlaneGeometry(this.width, this.height);
         this.material = new THREE.MeshBasicMaterial({
@@ -228,6 +234,7 @@ export class InfoPanel3D {
     }
 
     show(data) {
+        console.log('[InfoPanel3D] show() called with:', data?.label);
         if (!data) return;
         this.currentData = data;
 
@@ -241,6 +248,7 @@ export class InfoPanel3D {
 
         // Position 1.2m in front of camera
         this.group.visible = true;
+        console.log('[InfoPanel3D] Panel visibility set to true');
 
         const dist = 1.2;
         const vec = new THREE.Vector3(0, 0, -dist);
@@ -250,6 +258,7 @@ export class InfoPanel3D {
     }
 
     updateContent() {
+        console.log('[InfoPanel3D] updateContent() for page:', this.currentPageIndex);
         const data = this.currentData;
         const title = data.title || data.label || 'Information';
         const description = this.pages[this.currentPageIndex];
