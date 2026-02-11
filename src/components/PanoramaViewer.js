@@ -667,7 +667,7 @@ export class PanoramaViewer {
             if (yaw < -180) yaw += 360;
             if (yaw > 180) yaw -= 360;
 
-            return {
+            const result = {
                 yaw: parseFloat(yaw.toFixed(2)),
                 pitch: parseFloat(pitch.toFixed(2)),
                 target: data.target || '',
@@ -678,14 +678,22 @@ export class PanoramaViewer {
                 textSize: data.textSize !== undefined ? data.textSize : 1.0,
                 color: data.color || null,
                 icon_url: data.icon_url || null,
-                labelOffset: data.labelOffset !== undefined ? data.labelOffset : 0,
-                title: data.title || '',
-                description: data.description || '',
-                infoWidth: data.infoWidth || 1.0,
-                infoHeight: data.infoHeight || 0.8,
-                infoColor: data.infoColor || '#1e293b',
-                infoOpacity: data.infoOpacity !== undefined ? data.infoOpacity : 0.95
+                labelOffset: data.labelOffset !== undefined ? data.labelOffset : 0
             };
+
+            // Only add extra fields if they are relevant to the type to save space
+            if (result.type === 'info') {
+                result.title = data.title || '';
+                result.description = data.description || '';
+                result.infoWidth = data.infoWidth || 1.0;
+                result.infoHeight = data.infoHeight || 0.8;
+                result.infoColor = data.infoColor || '#1e293b';
+                result.infoOpacity = data.infoOpacity !== undefined ? data.infoOpacity : 0.95;
+            } else if (result.type === 'photo') {
+                result.description = data.description || ''; // Used as caption
+            }
+
+            return result;
         });
 
         return {
