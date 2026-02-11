@@ -23,10 +23,17 @@ export class VROverlay {
             position: 'fixed',
             top: '0',
             left: '0',
+            right: '0',
+            bottom: '0',
             width: '100%',
             height: '100%',
+            minWidth: '100vw',
+            minHeight: '100vh',
+            margin: '0',
+            padding: '0',
+            boxSizing: 'border-box',
             backgroundColor: '#ffffff',
-            zIndex: '10000',
+            zIndex: '99999',
             display: 'none',
             flexDirection: 'column',
             justifyContent: 'center',
@@ -200,22 +207,12 @@ export class VROverlay {
                         <!-- Arrow -->
                         <path d="M30 32 L40 18 L50 32" stroke="#555" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
                     </svg>
-                    <p class="vr-overlay-instruction">Geser ke atas untuk masuk<br><strong>Fullscreen Mode</strong></p>
                 </div>
-                <button id="vr-step2-enter" class="vr-overlay-btn primary">MASUK VR</button>
             </div>
         `;
 
-        // Fallback button click
-        const enterBtn = this.overlay.querySelector('#vr-step2-enter');
-        if (enterBtn) {
-            enterBtn.addEventListener('click', () => {
-                console.log('Fallback button clicked');
-                this.stopFullscreenWatch();
-                this.hide();
-                if (this.onEnterVR) this.onEnterVR();
-            });
-        }
+        // Fallback button click removed as per request
+
 
         // Start watching for fullscreen (toolbar hide)
         this.startFullscreenWatch();

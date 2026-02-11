@@ -475,9 +475,9 @@ canvas {
 /* Instruction text (Steps 2+) */
 #vr-instruction-overlay .vr-overlay-instruction {
     margin: 0;
-    font-size: clamp(0.85rem, 3vmin, 1.2rem);
+    font-size: clamp(1.2rem, 5vmin, 2rem);
     color: #333;
-    line-height: 1.5;
+    line-height: 1.4;
 }
 
 #vr-instruction-overlay .vr-overlay-instruction strong {
@@ -593,6 +593,11 @@ body.ios-scroll-active {
 body.ios-scroll-active #vr-instruction-overlay {
     position: sticky !important;
     top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw !important;
     height: 100vh !important;
     min-height: 100vh !important;
+    z-index: 99999 !important;
 }
