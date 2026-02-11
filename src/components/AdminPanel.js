@@ -364,7 +364,7 @@ export class AdminPanel {
             }));
 
             // Description
-            this.form.appendChild(this.createLabel('Description'));
+            this.form.appendChild(this.createLabel('Description (Use [PAGE] to split pages)'));
             const descArea = document.createElement('textarea');
             descArea.value = hotspot.description || '';
             Object.assign(descArea.style, {

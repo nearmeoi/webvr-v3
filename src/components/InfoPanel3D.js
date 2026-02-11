@@ -12,25 +12,37 @@ export class InfoPanel3D {
         this.width = 1.0;
         this.height = 0.8;
 
+        // Paging State
+        this.pages = [];
+        this.currentPageIndex = 0;
+        this.currentData = null;
+
         this.init();
     }
 
     init() {
         // Plane for content
-        const geometry = new THREE.PlaneGeometry(this.width, this.height);
+        this.geometry = new THREE.PlaneGeometry(this.width, this.height);
         this.material = new THREE.MeshBasicMaterial({
             transparent: true,
             side: THREE.DoubleSide,
-            depthTest: false, // Always show on top
-            depthWrite: false // Important for translucent objects
+            depthTest: false,
+            depthWrite: false
         });
-        this.mesh = new THREE.Mesh(geometry, this.material);
+        this.mesh = new THREE.Mesh(this.geometry, this.material);
         this.mesh.renderOrder = 9999;
         this.group.add(this.mesh);
 
-        // Close Button (Interactive)
-        // Increase size and push to front
-        const closeGeo = new THREE.CircleGeometry(0.08, 32);
+        // Close Button
+        this.createCloseButton();
+
+        // Navigation Buttons
+        this.createNavigationButtons();
+    }
+
+    createCloseButton() {
+        const size = 0.08;
+        const closeGeo = new THREE.CircleGeometry(size, 32);
         const closeMat = new THREE.MeshBasicMaterial({
             color: 0xef4444,
             depthTest: false,
@@ -40,17 +52,10 @@ export class InfoPanel3D {
         });
         this.closeBtn = new THREE.Mesh(closeGeo, closeMat);
         this.closeBtn.renderOrder = 10000;
-        // Position at top-right corner, significantly in front (Positive Z)
-        this.closeBtn.position.set(this.width / 2 - 0.02, this.height / 2 - 0.02, 0.05);
 
         this.closeBtn.userData.isInteractable = true;
-        this.closeBtn.onClick = () => {
-            console.log('Close button clicked!');
-            this.hide();
-        };
+        this.closeBtn.onClick = () => this.hide();
 
-        // Hover Scale Effect
-        this.closeBtn.userData.originalScale = new THREE.Vector3(1, 1, 1);
         this.closeBtn.onHoverIn = () => {
             document.body.style.cursor = 'pointer';
             this.closeBtn.scale.set(1.2, 1.2, 1.2);
@@ -60,31 +65,86 @@ export class InfoPanel3D {
             this.closeBtn.scale.set(1, 1, 1);
         };
 
-        // Add "X" text to button
-        const xCanvas = document.createElement('canvas');
-        xCanvas.width = 64; xCanvas.height = 64;
-        const ctx = xCanvas.getContext('2d');
+        const xMesh = this.createIconMesh('×', size);
+        xMesh.position.z = 0.01;
+        xMesh.renderOrder = 10001;
+        this.closeBtn.add(xMesh);
+        this.group.add(this.closeBtn);
+    }
+
+    createNavigationButtons() {
+        // Next Button
+        this.nextBtn = this.createGenericButton('NEXT', 0x10b981); // Emerald 500
+        this.nextBtn.onClick = () => this.nextPage();
+        this.group.add(this.nextBtn);
+
+        // Prev Button
+        this.prevBtn = this.createGenericButton('PREV', 0x6366f1); // Indigo 500
+        this.prevBtn.onClick = () => this.prevPage();
+        this.group.add(this.prevBtn);
+    }
+
+    createGenericButton(text, colorHex) {
+        const w = 0.25;
+        const h = 0.12;
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+
+        // Bg
+        const color = new THREE.Color(colorHex);
+        ctx.fillStyle = `rgb(${Math.floor(color.r * 255)}, ${Math.floor(color.g * 255)}, ${Math.floor(color.b * 255)})`;
+        this.roundRect(ctx, 0, 0, 256, 128, 30);
+        ctx.fill();
+
+        // Text
         ctx.fillStyle = 'white';
-        ctx.font = 'bold 40px sans-serif';
+        ctx.font = 'bold 60px Roboto, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('×', 32, 32);
-        const xTex = new THREE.CanvasTexture(xCanvas);
-        const xMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.08), new THREE.MeshBasicMaterial({
-            map: xTex,
+        ctx.fillText(text, 128, 64);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        const mat = new THREE.MeshBasicMaterial({
+            map: tex,
             transparent: true,
             depthTest: false,
             depthWrite: false,
             side: THREE.DoubleSide
-        }));
-        xMesh.position.z = 0.01; // Slightly in front of red circle
-        xMesh.renderOrder = 10001;
-        this.closeBtn.add(xMesh);
+        });
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+        mesh.renderOrder = 10000;
+        mesh.userData.isInteractable = true;
 
-        this.group.add(this.closeBtn);
+        mesh.onHoverIn = () => {
+            document.body.style.cursor = 'pointer';
+            mesh.scale.set(1.1, 1.1, 1.1);
+        };
+        mesh.onHoverOut = () => {
+            document.body.style.cursor = 'default';
+            mesh.scale.set(1, 1, 1);
+        };
+
+        return mesh;
     }
 
-    drawTexture(title, description, bgColor = 'rgba(30, 41, 59, 0.95)') {
+    createIconMesh(char, size) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'white';
+        ctx.font = `bold 40px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(char, 32, 32);
+        const tex = new THREE.CanvasTexture(canvas);
+        return new THREE.Mesh(
+            new THREE.PlaneGeometry(size, size),
+            new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
+        );
+    }
+
+    drawTexture(title, description, bgColor = 'rgba(30, 41, 59, 0.95)', pageInfo = '') {
         const w = 1024;
         const h = 800;
         const canvas = document.createElement('canvas');
@@ -92,35 +152,43 @@ export class InfoPanel3D {
         canvas.height = h;
         const ctx = canvas.getContext('2d');
 
-        // Background (Custom color)
+        // Background
         ctx.fillStyle = bgColor;
         this.roundRect(ctx, 0, 0, w, h, 40);
         ctx.fill();
 
-        // Border (Slightly lighter than bg for glass effect)
+        // Border
         ctx.lineWidth = 4;
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
         ctx.stroke();
 
         // Title
-        ctx.fillStyle = '#f3f4f6'; // Gray 100
-        ctx.font = 'bold 70px Roboto, sans-serif';
+        ctx.fillStyle = '#f3f4f6';
+        ctx.font = 'bold 65px Roboto, sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
         ctx.fillText(title, 60, 60);
 
-        // Separator Line
+        // Separator
         ctx.beginPath();
-        ctx.moveTo(60, 160);
-        ctx.lineTo(w - 60, 160);
-        ctx.strokeStyle = '#4b5563'; // Gray 600
+        ctx.moveTo(60, 150);
+        ctx.lineTo(w - 60, 150);
+        ctx.strokeStyle = '#4b5563';
         ctx.lineWidth = 2;
         ctx.stroke();
 
         // Description
-        ctx.fillStyle = '#d1d5db'; // Gray 300
+        ctx.fillStyle = '#d1d5db';
         ctx.font = '40px Roboto, sans-serif';
-        this.wrapText(ctx, description, 60, 200, w - 120, 60);
+        this.wrapText(ctx, description, 60, 190, w - 120, 60);
+
+        // Page Indicator
+        if (pageInfo) {
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.font = 'italic 30px Roboto, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(pageInfo, w - 60, h - 50);
+        }
 
         const tex = new THREE.CanvasTexture(canvas);
         tex.minFilter = THREE.LinearFilter;
@@ -161,34 +229,15 @@ export class InfoPanel3D {
 
     show(data) {
         if (!data) return;
+        this.currentData = data;
 
-        const title = data.title || data.label || 'Information';
-        const description = data.description || 'No description available.';
+        const rawDescription = data.description || 'No description available.';
 
-        // Custom Styles
-        const width = data.infoWidth || 1.0;
-        const height = data.infoHeight || 0.8;
-        const color = data.infoColor || '#1e293b';
-        const opacity = data.infoOpacity !== undefined ? data.infoOpacity : 0.95;
+        // Split by [PAGE]
+        this.pages = rawDescription.split('[PAGE]').map(p => p.trim());
+        this.currentPageIndex = 0;
 
-        // Convert HEX to RGBA for canvas background
-        const r = parseInt(color.slice(1, 3), 16);
-        const g = parseInt(color.slice(3, 5), 16);
-        const b = parseInt(color.slice(5, 7), 16);
-        const rgba = `rgba(${r}, ${g}, ${b}, 1.0)`; // Opacity handled by material
-
-        // Update Geometry
-        this.mesh.geometry.dispose();
-        this.mesh.geometry = new THREE.PlaneGeometry(width, height);
-
-        // Update Material
-        if (this.material.map) this.material.map.dispose();
-        this.material.map = this.drawTexture(title, description, rgba);
-        this.material.opacity = opacity;
-        this.material.needsUpdate = true;
-
-        // Position Close Button based on new size
-        this.closeBtn.position.set(width / 2 - 0.02, height / 2 - 0.02, 0.05);
+        this.updateContent();
 
         // Position 1.2m in front of camera
         this.group.visible = true;
@@ -198,6 +247,57 @@ export class InfoPanel3D {
         vec.applyQuaternion(this.camera.quaternion);
         this.group.position.copy(this.camera.position).add(vec);
         this.group.lookAt(this.camera.position);
+    }
+
+    updateContent() {
+        const data = this.currentData;
+        const title = data.title || data.label || 'Information';
+        const description = this.pages[this.currentPageIndex];
+
+        const width = data.infoWidth || 1.0;
+        const height = data.infoHeight || 0.8;
+        const hexColor = data.infoColor || '#1e293b';
+        const opacity = data.infoOpacity !== undefined ? data.infoOpacity : 0.95;
+
+        // Robust color parsing
+        const color = new THREE.Color(hexColor);
+        const rgba = `rgba(${Math.floor(color.r * 255)}, ${Math.floor(color.g * 255)}, ${Math.floor(color.b * 255)}, 1.0)`;
+
+        const pageInfo = this.pages.length > 1 ? `Page ${this.currentPageIndex + 1} of ${this.pages.length}` : '';
+
+        // Update Mesh
+        this.mesh.geometry.dispose();
+        this.mesh.geometry = new THREE.PlaneGeometry(width, height);
+
+        if (this.material.map) this.material.map.dispose();
+        this.material.map = this.drawTexture(title, description, rgba, pageInfo);
+        this.material.opacity = opacity;
+        this.material.needsUpdate = true;
+
+        // UI Positions
+        this.closeBtn.position.set(width / 2 - 0.02, height / 2 - 0.02, 0.05);
+
+        // Navigation Buttons
+        const buttonY = -height / 2 - 0.1;
+        this.prevBtn.position.set(-width / 4, buttonY, 0.02);
+        this.nextBtn.position.set(width / 4, buttonY, 0.02);
+
+        this.prevBtn.visible = this.currentPageIndex > 0;
+        this.nextBtn.visible = this.currentPageIndex < this.pages.length - 1;
+    }
+
+    nextPage() {
+        if (this.currentPageIndex < this.pages.length - 1) {
+            this.currentPageIndex++;
+            this.updateContent();
+        }
+    }
+
+    prevPage() {
+        if (this.currentPageIndex > 0) {
+            this.currentPageIndex--;
+            this.updateContent();
+        }
     }
 
     hide() {
