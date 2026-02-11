@@ -11,6 +11,7 @@ export class VROverlay {
         this.currentStep = 0;
         this.isLandscape = false;
         this.orientationHandler = null;
+        this.isFullscreenAchieved = false;
         this.createOverlay();
     }
 
@@ -169,6 +170,13 @@ export class VROverlay {
     }
 
     renderLandscapeInstruction() {
+        // If fullscreen was already achieved, skip overlay and enter VR directly
+        if (this.isFullscreenAchieved) {
+            this.hide();
+            if (this.onEnterVR) this.onEnterVR();
+            return;
+        }
+
         // MUST record height BEFORE any CSS changes
         this.initialViewportHeight = window.innerHeight;
         console.log(`Initial viewport height recorded: ${this.initialViewportHeight}`);
@@ -207,11 +215,10 @@ export class VROverlay {
                         <!-- Arrow -->
                         <path d="M30 32 L40 18 L50 32" stroke="#555" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
                     </svg>
+                    <p class="vr-overlay-instruction">Geser ke atas untuk masuk<br><strong>Fullscreen Mode</strong></p>
                 </div>
             </div>
         `;
-
-        // Fallback button click removed as per request
 
 
         // Start watching for fullscreen (toolbar hide)
@@ -236,14 +243,15 @@ export class VROverlay {
             // In landscape, the "screen height" is the shorter dimension
             const screenShort = Math.min(screen.width, screen.height);
 
-            // Fullscreen = height grew by at least 40px AND viewport is near screen edge
-            // Both conditions must be true to avoid false positives
-            const isFullscreen = heightDiff > 40 && currentHeight >= screenShort - 30;
+            // Fullscreen = height grew by at least 20px OR viewport is near screen edge
+            // More lenient to trigger faster when address bar starts hiding
+            const isFullscreen = heightDiff > 20 || currentHeight >= screenShort - 60;
 
             console.log(`FS check: base=${baseHeight}, now=${currentHeight}, diff=${heightDiff}, screenShort=${screenShort}, full=${isFullscreen}`);
 
             if (isFullscreen) {
                 console.log('Fullscreen detected! Entering VR...');
+                this.isFullscreenAchieved = true;
                 this.stopFullscreenWatch();
                 this.hide();
                 if (this.onEnterVR) this.onEnterVR();
