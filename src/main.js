@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import './style.css';
-import { VRButton } from 'three/addons/webxr/VRButton.js';
+
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DeviceOrientationControls } from './utils/DeviceOrientationControls.js';
 import { GazeController } from './components/GazeController.js';
 import { PanoramaViewer } from './components/PanoramaViewer.js';
 import { CardboardModeManager } from './components/CardboardModeManager.js';
-import { isIOS, isWebXRSupported, isMobile, isCardboardForced, requestGyroscopePermission } from './utils/deviceDetection.js';
+import { isIOS, isMobile, isCardboardForced, requestGyroscopePermission } from './utils/deviceDetection.js';
 import { iOSFullscreenHelper } from './utils/iOSFullscreenHelper.js';
 import { VROverlay } from './components/VROverlay.js';
 import { CONFIG } from './config.js';
@@ -102,17 +102,7 @@ class App {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
 
-        // WebXR support check
-        const supportsWebXR = isWebXRSupported();
 
-        // Enable WebXR only for non-iOS devices that support it
-        if (!this.isIOSDevice && supportsWebXR) {
-            this.renderer.xr.enabled = true;
-            this.vrButton = VRButton.createButton(this.renderer);
-            // Initially hide the VR button (glasses icon) on landing page
-            this.vrButton.style.display = 'none';
-            document.body.appendChild(this.vrButton);
-        }
 
         this.container.appendChild(this.renderer.domElement);
     }
