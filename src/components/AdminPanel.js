@@ -43,16 +43,16 @@ export class AdminPanel {
             maxHeight: 'calc(100vh - 40px)',
             overflowY: 'auto',
             overflowX: 'hidden', // Prevent horizontal scroll
-            background: 'rgba(17, 24, 39, 0.95)',
+            background: 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
             borderRadius: '12px',
             padding: '0',
-            color: '#e5e7eb',
+            color: '#1f2937',
             fontFamily: "'Roboto', 'Segoe UI', system-ui, sans-serif",
             display: 'none',
             zIndex: '10000',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
             boxSizing: 'border-box'
         });
 
@@ -61,6 +61,10 @@ export class AdminPanel {
         style.textContent = `
             #admin-panel * { box-sizing: border-box; }
             #admin-panel input[type=range] { width: 100%; min-width: 0; }
+            #admin-panel ::-webkit-scrollbar { width: 6px; }
+            #admin-panel ::-webkit-scrollbar-track { background: transparent; }
+            #admin-panel ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+            #admin-panel ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
         `;
         document.head.appendChild(style);
 
@@ -74,21 +78,25 @@ export class AdminPanel {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: '14px 18px',
-            borderBottom: '1px solid rgba(255,255,255,0.06)'
+            padding: '16px 20px',
+            borderBottom: '1px solid rgba(0,0,0,0.06)'
         });
         header.innerHTML = `
-            <span style="font-weight: 600; font-size: 14px; color: #f9fafb;">Hotspot Editor</span>
+            <span style="font-weight: 600; font-size: 15px; color: #111827;">Hotspot Editor</span>
             <button id="admin-close-btn" style="
                 background: transparent;
                 border: none;
-                width: 24px;
-                height: 24px;
-                border-radius: 4px;
+                width: 28px;
+                height: 28px;
+                border-radius: 6px;
                 color: #6b7280;
                 cursor: pointer;
-                font-size: 18px;
+                font-size: 20px;
                 line-height: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
             ">×</button>
         `;
         this.container.appendChild(header);
@@ -97,22 +105,24 @@ export class AdminPanel {
             const closeBtn = document.getElementById('admin-close-btn');
             if (closeBtn) {
                 closeBtn.onclick = () => this.toggle();
-                closeBtn.onmouseover = () => { closeBtn.style.color = '#f9fafb'; closeBtn.style.background = 'rgba(255,255,255,0.1)'; };
+                closeBtn.onmouseover = () => { closeBtn.style.color = '#1f2937'; closeBtn.style.background = '#f3f4f6'; };
                 closeBtn.onmouseout = () => { closeBtn.style.color = '#6b7280'; closeBtn.style.background = 'transparent'; };
             }
         }, 0);
 
         const content = document.createElement('div');
-        content.style.padding = '14px 18px';
+        content.style.padding = '20px';
         this.container.appendChild(content);
 
         this.sceneInfo = document.createElement('div');
         Object.assign(this.sceneInfo.style, {
-            background: 'rgba(0,0,0,0.25)',
+            background: '#f9fafb',
             borderRadius: '8px',
-            padding: '12px',
-            marginBottom: '14px',
-            fontSize: '12px'
+            padding: '12px 16px',
+            marginBottom: '20px',
+            fontSize: '13px',
+            border: '1px solid #e5e7eb',
+            color: '#374151'
         });
         content.appendChild(this.sceneInfo);
 
@@ -121,22 +131,28 @@ export class AdminPanel {
 
         const footer = document.createElement('div');
         Object.assign(footer.style, {
-            padding: '14px 18px',
-            borderTop: '1px solid rgba(255,255,255,0.06)',
+            padding: '16px 20px',
+            borderTop: '1px solid rgba(0,0,0,0.06)',
             display: 'flex',
-            gap: '8px'
+            gap: '10px',
+            background: '#ffffff',
+            borderRadius: '0 0 12px 12px'
         });
 
         this.saveBtn = this.createButton('Save', '#10b981', () => this.saveToDisk());
         this.saveBtn.style.flex = '1';
+        this.saveBtn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
         footer.appendChild(this.saveBtn);
 
-        const refreshBtn = this.createButton('Refresh', 'rgba(255,255,255,0.08)', () => {
+        const refreshBtn = this.createButton('Refresh', '#f3f4f6', () => {
             this.viewer.fetchHotspots?.();
             this.showToast('Refreshed');
         });
         refreshBtn.style.flex = '0';
-        refreshBtn.style.color = '#9ca3af';
+        refreshBtn.style.color = '#4b5563';
+        refreshBtn.style.border = '1px solid #e5e7eb';
+        refreshBtn.onmouseover = () => { refreshBtn.style.background = '#e5e7eb'; };
+        refreshBtn.onmouseout = () => { refreshBtn.style.background = '#f3f4f6'; };
         footer.appendChild(refreshBtn);
 
         this.container.appendChild(footer);
@@ -147,16 +163,17 @@ export class AdminPanel {
             bottom: '24px',
             left: '50%',
             transform: 'translateX(-50%)',
-            background: 'rgba(17, 24, 39, 0.95)',
+            background: '#ffffff',
             padding: '10px 20px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            color: '#e5e7eb',
+            borderRadius: '50px',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#111827',
             opacity: '0',
             transition: 'opacity 0.2s',
             zIndex: '10001',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            border: '1px solid rgba(255,255,255,0.08)'
+            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+            border: '1px solid rgba(0,0,0,0.05)'
         });
         document.body.appendChild(this.toast);
 
@@ -191,11 +208,11 @@ export class AdminPanel {
         const hotspotCount = this.viewer.currentHotspots?.length || 0;
 
         this.sceneInfo.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #9ca3af;">Scene</span>
-                <span style="color: #6ee7b7; font-size: 11px;">${hotspotCount} hotspot${hotspotCount !== 1 ? 's' : ''}</span>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #6b7280; font-weight: 500;">Scene</span>
+                <span style="color: #10b981; font-size: 11px; background: rgba(16, 185, 129, 0.1); padding: 2px 6px; borderRadius: 4px;">${hotspotCount} hotspot${hotspotCount !== 1 ? 's' : ''}</span>
             </div>
-            <div style="font-family: 'Roboto Mono', monospace; font-size: 11px; color: #fbbf24; margin-top: 6px; word-break: break-all;">
+            <div style="font-family: 'Roboto Mono', monospace; font-size: 12px; color: #111827; margin-top: 8px; word-break: break-all;">
                 ${filename}
             </div>
         `;
@@ -208,15 +225,16 @@ export class AdminPanel {
             const emptyState = document.createElement('div');
             Object.assign(emptyState.style, {
                 textAlign: 'center',
-                padding: '24px 16px',
-                border: '1px dashed rgba(255,255,255,0.1)',
+                padding: '30px 16px',
+                border: '1px dashed #e5e7eb',
                 borderRadius: '8px',
-                color: '#6b7280',
-                fontSize: '12px'
+                color: '#9ca3af',
+                fontSize: '13px',
+                background: '#f9fafb'
             });
             emptyState.innerHTML = `
-                <div style="margin-bottom: 6px;">No hotspot selected</div>
-                <div style="color: #4b5563; font-size: 11px;">Right-click to add new</div>
+                <div style="margin-bottom: 8px; font-weight: 500; color: #6b7280;">No hotspot selected</div>
+                <div style="color: #9ca3af; font-size: 12px;">Right-click on the panorama to add new</div>
             `;
             this.form.appendChild(emptyState);
             return;
@@ -303,6 +321,40 @@ export class AdminPanel {
         this.form.appendChild(this.createLabel('Color'));
         this.form.appendChild(this.createColorPicker(hotspot));
 
+        // Custom Icon URL
+        this.form.appendChild(this.createLabel('Custom Icon URL'));
+        const iconInput = this.createInput(hotspot.icon_url, (val) => {
+            hotspot.icon_url = val;
+            this.viewer.refreshHotspot?.(hotspot);
+            this.markDirty();
+            // Update preview if exists
+            if (iconPreview) iconPreview.src = val || '';
+            iconPreviewWrapper.style.display = val ? 'block' : 'none';
+        });
+        iconInput.placeholder = 'https://example.com/icon.png';
+        this.form.appendChild(iconInput);
+
+        // Icon Preview
+        const iconPreviewWrapper = document.createElement('div');
+        Object.assign(iconPreviewWrapper.style, {
+            marginTop: '8px',
+            padding: '8px',
+            background: '#f9fafb',
+            border: '1px solid #e5e7eb',
+            borderRadius: '6px',
+            textAlign: 'center',
+            display: hotspot.icon_url ? 'block' : 'none'
+        });
+        const iconPreview = document.createElement('img');
+        Object.assign(iconPreview.style, {
+            maxWidth: '100%',
+            maxHeight: '40px',
+            objectFit: 'contain'
+        });
+        iconPreview.src = hotspot.icon_url || '';
+        iconPreviewWrapper.appendChild(iconPreview);
+        this.form.appendChild(iconPreviewWrapper);
+
         // Target Header
         const targetHeader = document.createElement('div');
         Object.assign(targetHeader.style, {
@@ -312,18 +364,19 @@ export class AdminPanel {
             marginTop: '16px',
             marginBottom: '8px'
         });
-        targetHeader.innerHTML = `<span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: #9ca3af;">Target</span>`;
+        targetHeader.innerHTML = `<span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; font-weight: 600;">Target</span>`;
 
         const toggleBtn = document.createElement('button');
         toggleBtn.textContent = this.useCustomPath ? 'Use List' : 'Custom Path';
         Object.assign(toggleBtn.style, {
-            background: 'rgba(255,255,255,0.08)',
-            border: 'none',
+            background: '#f3f4f6',
+            border: '1px solid #d1d5db',
             borderRadius: '4px',
-            color: '#9ca3af',
+            color: '#4b5563',
             fontSize: '10px',
             padding: '4px 8px',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            fontWeight: '500'
         });
         toggleBtn.onclick = () => {
             this.useCustomPath = !this.useCustomPath;
@@ -348,18 +401,19 @@ export class AdminPanel {
         deleteBtn.textContent = 'Delete';
         Object.assign(deleteBtn.style, {
             width: '100%',
-            marginTop: '18px',
-            padding: '10px',
+            marginTop: '24px',
+            padding: '12px',
             background: 'transparent',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '6px',
-            color: '#f87171',
-            fontSize: '12px',
+            border: '1px solid #fee2e2',
+            borderRadius: '8px',
+            color: '#ef4444',
+            fontSize: '13px',
+            fontWeight: '600',
             cursor: 'pointer',
-            transition: 'all 0.15s'
+            transition: 'all 0.2s'
         });
-        deleteBtn.onmouseover = () => { deleteBtn.style.background = 'rgba(239, 68, 68, 0.1)'; };
-        deleteBtn.onmouseout = () => { deleteBtn.style.background = 'transparent'; };
+        deleteBtn.onmouseover = () => { deleteBtn.style.background = '#fef2f2'; deleteBtn.style.borderColor = '#fecaca'; };
+        deleteBtn.onmouseout = () => { deleteBtn.style.background = 'transparent'; deleteBtn.style.borderColor = '#fee2e2'; };
         deleteBtn.onclick = () => {
             if (confirm('Delete this hotspot?')) {
                 this.viewer.removeHotspot(hotspot);
@@ -378,10 +432,11 @@ export class AdminPanel {
             display: 'block',
             fontSize: '11px',
             textTransform: 'uppercase',
-            letterSpacing: '0.3px',
-            color: '#9ca3af',
-            marginBottom: '5px',
-            marginTop: '12px'
+            letterSpacing: '0.5px',
+            color: '#6b7280',
+            fontWeight: '600',
+            marginBottom: '6px',
+            marginTop: '16px'
         });
         return label;
     }
@@ -391,18 +446,19 @@ export class AdminPanel {
         input.value = value || '';
         Object.assign(input.style, {
             width: '100%',
-            padding: '9px 11px',
-            background: 'rgba(0,0,0,0.3)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            padding: '10px 12px',
+            background: '#ffffff',
+            border: '1px solid #d1d5db',
             borderRadius: '6px',
-            color: '#f9fafb',
-            fontSize: '13px',
+            color: '#111827',
+            fontSize: '14px',
             boxSizing: 'border-box',
             outline: 'none',
-            fontFamily: "'Roboto', sans-serif"
+            fontFamily: "'Roboto', sans-serif",
+            transition: 'border-color 0.15s, box-shadow 0.15s'
         });
-        input.onfocus = () => input.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-        input.onblur = () => input.style.borderColor = 'rgba(255,255,255,0.08)';
+        input.onfocus = () => { input.style.borderColor = '#3b82f6'; input.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)'; };
+        input.onblur = () => { input.style.borderColor = '#d1d5db'; input.style.boxShadow = 'none'; };
         input.oninput = (e) => onChange(e.target.value);
         return input;
     }
@@ -411,12 +467,12 @@ export class AdminPanel {
         const select = document.createElement('select');
         Object.assign(select.style, {
             width: '100%',
-            padding: '9px 11px',
-            background: 'rgba(0,0,0,0.3)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            padding: '10px 12px',
+            background: '#ffffff',
+            border: '1px solid #d1d5db',
             borderRadius: '6px',
-            color: '#f9fafb',
-            fontSize: '13px',
+            color: '#111827',
+            fontSize: '14px',
             cursor: 'pointer',
             boxSizing: 'border-box',
             outline: 'none',
@@ -427,7 +483,8 @@ export class AdminPanel {
             const option = document.createElement('option');
             option.value = opt.value;
             option.textContent = opt.label;
-            option.style.background = '#111827';
+            option.style.background = '#ffffff';
+            option.style.color = '#111827';
             if (opt.value === value) option.selected = true;
             select.appendChild(option);
         });
@@ -455,7 +512,7 @@ export class AdminPanel {
             width: '100%',
             minWidth: '50px',
             height: '4px',
-            background: 'rgba(255,255,255,0.1)',
+            background: '#e5e7eb',
             borderRadius: '2px',
             outline: 'none',
             cursor: 'pointer',
@@ -466,10 +523,11 @@ export class AdminPanel {
         const valueLabel = document.createElement('span');
         valueLabel.textContent = value;
         Object.assign(valueLabel.style, {
-            fontSize: '11px',
-            color: '#9ca3af',
+            fontSize: '12px',
+            color: '#6b7280',
             minWidth: '20px',
-            textAlign: 'right'
+            textAlign: 'right',
+            fontFamily: 'monospace'
         });
 
         slider.oninput = (e) => {
@@ -498,9 +556,10 @@ export class AdminPanel {
                 height: '28px',
                 borderRadius: '6px',
                 background: color,
-                border: hotspot.color === color ? '2px solid #fff' : '2px solid transparent',
+                border: hotspot.color === color ? '2px solid #111827' : '2px solid transparent',
                 cursor: 'pointer',
-                transition: 'transform 0.1s, border-color 0.1s'
+                transition: 'transform 0.1s, border-color 0.1s',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
             });
             swatch.onmouseover = () => swatch.style.transform = 'scale(1.1)';
             swatch.onmouseout = () => swatch.style.transform = 'scale(1)';
@@ -541,12 +600,12 @@ export class AdminPanel {
         searchInput.placeholder = 'Search...';
         Object.assign(searchInput.style, {
             width: '100%',
-            padding: '9px 11px',
-            background: 'rgba(0,0,0,0.3)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            padding: '10px 12px',
+            background: '#ffffff',
+            border: '1px solid #d1d5db',
             borderRadius: '6px 6px 0 0',
-            color: '#f9fafb',
-            fontSize: '12px',
+            color: '#111827',
+            fontSize: '13px',
             boxSizing: 'border-box',
             outline: 'none',
             borderBottom: 'none',
@@ -557,11 +616,11 @@ export class AdminPanel {
         select.size = 5;
         Object.assign(select.style, {
             width: '100%',
-            background: 'rgba(0,0,0,0.3)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: '#ffffff',
+            border: '1px solid #d1d5db',
             borderRadius: '0 0 6px 6px',
-            color: '#f9fafb',
-            fontSize: '11px',
+            color: '#111827',
+            fontSize: '12px',
             cursor: 'pointer',
             boxSizing: 'border-box',
             outline: 'none',
@@ -574,8 +633,9 @@ export class AdminPanel {
             const noTargetOpt = document.createElement('option');
             noTargetOpt.value = '';
             noTargetOpt.textContent = '(none)';
-            noTargetOpt.style.padding = '6px 8px';
-            noTargetOpt.style.background = '#111827';
+            noTargetOpt.style.padding = '8px 10px';
+            noTargetOpt.style.background = '#ffffff';
+            noTargetOpt.style.color = '#6b7280';
             select.appendChild(noTargetOpt);
 
             const filtered = this.availableScenes.filter(s =>
@@ -586,8 +646,8 @@ export class AdminPanel {
                 const opt = document.createElement('option');
                 opt.value = scene.path;
                 opt.textContent = scene.filename;
-                opt.style.padding = '6px 8px';
-                opt.style.background = '#111827';
+                opt.style.padding = '8px 10px';
+                opt.style.background = '#ffffff';
                 if (scene.path === hotspot.target) opt.selected = true;
                 select.appendChild(opt);
             });
@@ -673,8 +733,12 @@ export class AdminPanel {
     }
 
     async saveToDisk() {
-        const data = this.viewer.getAllHotspotsData();
-        console.log('Saving:', data);
+        const payload = this.viewer.getCurrentSceneHotspots();
+        if (!payload) {
+            this.showToast('No scene to save');
+            return;
+        }
+        console.log('Saving scene data:', payload);
 
         try {
             this.saveBtn.textContent = 'Saving...';
@@ -683,7 +747,7 @@ export class AdminPanel {
             const res = await fetch(`${API_BASE}/api/save-hotspots`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data, null, 2)
+                body: JSON.stringify(payload, null, 2)
             });
 
             if (res.ok) {

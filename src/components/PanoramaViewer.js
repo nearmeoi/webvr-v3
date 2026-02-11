@@ -639,29 +639,19 @@ export class PanoramaViewer {
 
     // --- Admin / Editing Methods ---
 
-    getAllHotspotsData() {
-        // Collect all hotspots from the scene and return as JSON object
-        // Keyed by Path.
-
+    getCurrentSceneHotspots() {
         // 1. Get current path
         let currentPath = this.currentPath;
-
-        // If not set directly, try to infer from ID (fallback)
         if (!currentPath && this.currentSceneId) {
             const sceneData = SCENE_MAP[this.currentSceneId];
             if (sceneData) currentPath = sceneData.path;
         }
 
-        if (!currentPath) {
-            console.error('Cannot save hotspots: No current path identified.');
-            return {};
-        }
+        if (!currentPath) return null;
 
-        // 2. Convert current 3D meshes back to Data
-        const currentSceneHotspots = this.currentHotspots.map(mesh => {
+        // 2. Build list from meshes
+        const hotspots = this.currentHotspots.map(mesh => {
             const data = mesh.userData.hotspotData;
-
-            // Recalculate Yaw/Pitch from current position (in case it was dragged)
             const p = mesh.position.clone().normalize();
             const pitch = THREE.MathUtils.radToDeg(Math.asin(p.y));
             let standardYaw = THREE.MathUtils.radToDeg(Math.atan2(p.x, -p.z));
@@ -672,34 +662,30 @@ export class PanoramaViewer {
             return {
                 yaw: parseFloat(yaw.toFixed(2)),
                 pitch: parseFloat(pitch.toFixed(2)),
-                target: data.target,
-                target_name: data.label || data.target_name,
+                target: data.target || '',
+                target_name: data.label || data.target_name || '',
                 type: data.type || 'arrow',
                 label: data.label || '',
                 size: data.size !== undefined ? data.size : 3,
                 textSize: data.textSize !== undefined ? data.textSize : 1.0,
                 color: data.color || null,
+                icon_url: data.icon_url || null,
                 labelOffset: data.labelOffset !== undefined ? data.labelOffset : 0
             };
         });
 
-        // 3. Update the global HOTSPOTS_DATA for this scene
+        return {
+            sceneId: currentPath,
+            hotspots: hotspots
+        };
+    }
+
+    getAllHotspotsData() {
+        const currentData = this.getCurrentSceneHotspots();
+        if (!currentData) return this.hotspotsData;
+
         const fullData = { ...this.hotspotsData };
-
-        // Use path as key for saving
-        if (fullData[currentPath]) {
-            fullData[currentPath] = currentSceneHotspots;
-        } else {
-            // Fuzzy match key?
-            const key = Object.keys(fullData).find(k => currentPath.includes(k) || k.includes(currentPath));
-            if (key) {
-                fullData[key] = currentSceneHotspots;
-            } else {
-                // Create new entry
-                fullData[currentPath] = currentSceneHotspots;
-            }
-        }
-
+        fullData[currentData.sceneId] = currentData.hotspots;
         return fullData;
     }
 
@@ -1218,14 +1204,25 @@ export class PanoramaViewer {
         const type = data.type || 'arrow';
         const size = data.size || 3;
         const color = data.color || null;
+        const iconUrl = data.icon_url || null;
 
         const geometry = new THREE.PlaneGeometry(size, size);
         const material = new THREE.MeshBasicMaterial({
-            map: this.createIconTexture(type, color),
             transparent: true,
             side: THREE.DoubleSide,
             depthTest: false
         });
+
+        // Load Icon
+        if (iconUrl) {
+            this.textureLoader.load(iconUrl, (tex) => {
+                tex.colorSpace = THREE.SRGBColorSpace;
+                material.map = tex;
+                material.needsUpdate = true;
+            });
+        } else {
+            material.map = this.createIconTexture(type, color);
+        }
 
         const mesh = new THREE.Mesh(geometry, material);
 

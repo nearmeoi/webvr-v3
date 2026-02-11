@@ -24,12 +24,18 @@ export class GazeController {
         this.mesh = new THREE.Mesh(geometry, material);
         // Position will be updated in update() loop
         this.scene.add(this.mesh);
-        this.mesh.renderOrder = 999;
+        this.mesh.renderOrder = 10001; // Higher than hotspots (9999)
 
         // Progress indicator (Inner circle filling up)
         const progressGeo = new THREE.CircleGeometry(reticleSize * 1.5, 32);
-        const progressMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const progressMat = new THREE.MeshBasicMaterial({
+            color: 0x00ff00,
+            depthTest: false,
+            depthWrite: false,
+            transparent: true
+        });
         this.progressMesh = new THREE.Mesh(progressGeo, progressMat);
+        this.progressMesh.renderOrder = 10002;
         this.progressMesh.scale.set(0, 0, 1);
         this.mesh.add(this.progressMesh);
 
