@@ -47,6 +47,7 @@ export class VROverlay {
     }
 
     show() {
+        this.isFullscreenAchieved = false; // Reset so overlay can appear again
         this.overlay.style.display = 'flex';
         this.currentStep = 1;
         this.renderStep1();

@@ -476,6 +476,74 @@ class App {
             }
         });
 
+        // Touch Tap Interaction (Desktop Touchscreen)
+        // OrbitControls may consume touch events, preventing 'click' from firing on tap.
+        // This detects short taps and performs the same raycast as mouse click.
+        let touchStartPos = null;
+        let touchStartTime = 0;
+
+        window.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                touchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                touchStartTime = Date.now();
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', (e) => {
+            if (!touchStartPos) return;
+
+            const touch = e.changedTouches[0];
+            const dx = touch.clientX - touchStartPos.x;
+            const dy = touch.clientY - touchStartPos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const duration = Date.now() - touchStartTime;
+
+            touchStartPos = null;
+
+            // Only treat as tap if short duration and minimal movement
+            if (duration > 300 || dist > 10) return;
+
+            // Skip if in VR
+            if (this.renderer.xr.enabled && this.renderer.xr.isPresenting) return;
+
+            const rect = this.renderer.domElement.getBoundingClientRect();
+            const mouse = new THREE.Vector2();
+            mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, this.camera);
+            this.scene.updateMatrixWorld(true);
+
+            // Admin interaction
+            if (this.panoramaViewer && this.panoramaViewer.isAdminMode) {
+                const adminObjects = [this.panoramaViewer.sphere];
+                if (this.panoramaViewer.group) {
+                    this.panoramaViewer.group.traverse(child => {
+                        if (child.userData && child.userData.hotspotData) {
+                            adminObjects.push(child);
+                        }
+                    });
+                }
+                const adminIntersects = raycaster.intersectObjects(adminObjects, false);
+                if (this.panoramaViewer.handleAdminClick(adminIntersects)) return;
+            }
+
+            // Normal interaction
+            const interactables = this.getInteractables();
+            const intersects = raycaster.intersectObjects(interactables, true);
+
+            if (intersects.length > 0) {
+                let target = intersects[0].object;
+                while (target && !target.userData.isInteractable && target.parent) {
+                    target = target.parent;
+                }
+                if (target && target.userData.isInteractable && target.onClick) {
+                    target.onClick(intersects[0]);
+                }
+            }
+        });
+
         // Right Click Interaction (Admin Add Hotspot)
         window.addEventListener('contextmenu', (event) => {
             if (!this.panoramaViewer?.isAdminMode) return;
@@ -775,11 +843,11 @@ class App {
             // This must be done on user gesture (click), just like audio resume
             try {
                 const gyroGranted = await requestGyroscopePermission();
-                if (gyroGranted) {
+                if (gyroGranted && isMobile()) {
                     this.isGyroEnabled = true;
-                    // Reset controls to align with current look direction
-                    // this.deviceOrientationControls.alphaOffset = this.camera.rotation.y; 
                     console.log('Gyroscope enabled for Magic Window mode');
+                } else {
+                    console.log('Desktop detected or gyro not available, using OrbitControls');
                 }
             } catch (e) {
                 console.warn('Gyroscope request failed:', e);
