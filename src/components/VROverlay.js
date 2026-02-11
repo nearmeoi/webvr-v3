@@ -226,30 +226,32 @@ export class VROverlay {
     }
 
 
-    // Detect when browser toolbar is hidden
+    // Detect when browser toolbar is hidden using viewport/screen ratio
     startFullscreenWatch() {
-        this.swipeAttempts = 0;
+        // Fullscreen check using ratio approach — more reliable across devices
+        const checkFullscreen = () => {
+            const windowHeight = window.innerHeight;
+            const screenHeight = window.screen.height;
 
-        // Use the height recorded BEFORE CSS changes
-        const baseHeight = this.initialViewportHeight;
+            // Visual Viewport API (paling akurat untuk iOS Safari)
+            const visualViewport = window.visualViewport;
+            const viewportHeight = visualViewport ? visualViewport.height : windowHeight;
+
+            // Cek rasio viewport vs screen (landscape: gunakan dimensi terpendek)
+            const screenShort = Math.min(screen.width, screen.height);
+            const heightRatio = viewportHeight / screenShort;
+
+            const isFullscreen = heightRatio > 0.95; // 95% dari screen height
+
+            console.log(`FS check: viewport=${viewportHeight.toFixed(0)}, screen=${screenShort}, ratio=${heightRatio.toFixed(3)}, full=${isFullscreen}`);
+
+            return isFullscreen;
+        };
 
         this.fullscreenHandler = () => {
             if (this.currentStep !== 2 || !this.isLandscape) return;
 
-            const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-            const currentHeight = Math.max(window.innerHeight, vh);
-            const heightDiff = currentHeight - baseHeight;
-
-            // In landscape, the "screen height" is the shorter dimension
-            const screenShort = Math.min(screen.width, screen.height);
-
-            // Fullscreen = height grew by at least 20px OR viewport is near screen edge
-            // More lenient to trigger faster when address bar starts hiding
-            const isFullscreen = heightDiff > 20 || currentHeight >= screenShort - 60;
-
-            console.log(`FS check: base=${baseHeight}, now=${currentHeight}, diff=${heightDiff}, screenShort=${screenShort}, full=${isFullscreen}`);
-
-            if (isFullscreen) {
+            if (checkFullscreen()) {
                 console.log('Fullscreen detected! Entering VR...');
                 this.isFullscreenAchieved = true;
                 this.stopFullscreenWatch();
@@ -260,13 +262,13 @@ export class VROverlay {
 
         // Don't check immediately — wait for CSS layout to settle
         setTimeout(() => {
-            // Listen to resize events (iOS Safari)
-            window.addEventListener('resize', this.fullscreenHandler);
-
-            // Listen to visualViewport resize (Android Chrome)
+            // Visual Viewport API (paling akurat untuk iOS Safari)
             if (window.visualViewport) {
                 window.visualViewport.addEventListener('resize', this.fullscreenHandler);
             }
+
+            // Fallback: window resize event
+            window.addEventListener('resize', this.fullscreenHandler);
 
             // Periodic polling fallback (some browsers don't fire events)
             this.fullscreenPollInterval = setInterval(() => {
@@ -283,7 +285,6 @@ export class VROverlay {
                 const touchEndY = e.changedTouches[0].clientY;
                 const swipeUp = this.touchStartY - touchEndY > 30;
                 if (swipeUp) {
-                    this.swipeAttempts++;
                     // Check after a delay for toolbar to hide
                     setTimeout(() => {
                         this.fullscreenHandler();
