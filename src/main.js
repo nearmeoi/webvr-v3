@@ -1,17 +1,40 @@
 import * as THREE from 'three';
 import './style.css';
-import { VRButton } from 'three/addons/webxr/VRButton.js';
+
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { DeviceOrientationControls } from './utils/DeviceOrientationControls.js';
 import { GazeController } from './components/GazeController.js';
-import { OrbitalMenu } from './components/OrbitalMenu.js';
-import { SubMenu } from './components/SubMenu.js';
 import { PanoramaViewer } from './components/PanoramaViewer.js';
-import { StereoVideoPlayer } from './components/StereoVideoPlayer.js';
 import { CardboardModeManager } from './components/CardboardModeManager.js';
-import { isIOS, isWebXRSupported, isMobile, isCardboardForced } from './utils/deviceDetection.js';
+import { isIOS, isMobile, isCardboardForced, requestGyroscopePermission } from './utils/deviceDetection.js';
+import { iOSFullscreenHelper } from './utils/iOSFullscreenHelper.js';
+import { VROverlay } from './components/VROverlay.js';
 import { CONFIG } from './config.js';
 import { TOUR_DATA } from './data/tourData.js';
-import { TourDirector } from './components/TourDirector.js';
+
+
+
+// Initialize WebXR Polyfill for iOS/mobile devices without native WebXR
+// This must be done BEFORE any WebXR code runs
+import WebXRPolyfill from 'webxr-polyfill';
+const polyfill = new WebXRPolyfill({
+    // Enable CardboardVRDisplay on mobile devices
+    cardboard: true,
+    // Fall back to WebVR 1.1 if available
+    webvr: true,
+    // Allow testing on desktop (for development)
+    allowCardboardOnDesktop: false,
+    // Cardboard-specific configuration
+    cardboardConfig: {
+        // Enable the polyfill's own UI (gear icon, viewer selector)
+        CARDBOARD_UI_DISABLED: false,
+        // Disable rotation instructions (we will provide our own)
+        ROTATE_INSTRUCTIONS_DISABLED: true,
+        // Buffer scale for performance
+        BUFFER_SCALE: 0.75
+    }
+});
+console.log('WebXR Polyfill initialized:', polyfill);
 
 class App {
     constructor() {
@@ -19,9 +42,17 @@ class App {
         this.isIOSDevice = isIOS() || isCardboardForced();
         this.isMobileDevice = isMobile();
 
+        // iOS Fullscreen Helper (video fullscreen wrapper)
+        if (this.isIOSDevice) {
+            this.iOSFullscreenHelper = new iOSFullscreenHelper();
+            console.log('iOS Fullscreen Helper initialized');
+        }
+
+        // VR Overlay (pre-VR instructions)
+        this.vrOverlay = new VROverlay(() => this.startVRSession());
+
         // State
         this.currentState = 'welcome';
-        this.currentSubMenuParent = null;
         this.isVRMode = false;
 
         // Setup
@@ -46,19 +77,30 @@ class App {
         this.container = document.createElement('div');
         document.body.appendChild(this.container);
 
+        // Debug Label (Internal)
+        this.debugInfo = document.createElement('div');
+        Object.assign(this.debugInfo.style, {
+            position: 'fixed',
+            bottom: '10px',
+            left: '10px',
+            fontSize: '10px',
+            color: 'rgba(255,255,255,0.5)',
+            zIndex: '10000',
+            pointerEvents: 'none',
+            fontFamily: 'monospace',
+            display: 'none' // Hidden by default, can be toggled by dev
+        });
+        document.body.appendChild(this.debugInfo);
+
         this.renderer = new THREE.WebGLRenderer({
             antialias: true,
-            preserveDrawingBuffer: true // Required for screenshot transitions
+            preserveDrawingBuffer: true, // Required for screenshot transitions
+            // PENTING: Paksa WebGL1 agar polyfill WebXR (yang memanggil
+            // canvas.getContext('webgl')) tidak konflik dengan konteks webgl2
+            forceWebGL1: true
         });
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-
-        // Enable WebXR only for non-iOS devices
-        if (!this.isIOSDevice && isWebXRSupported()) {
-            this.renderer.xr.enabled = true;
-            document.body.appendChild(VRButton.createButton(this.renderer));
-        }
-
         this.container.appendChild(this.renderer.domElement);
     }
 
@@ -80,13 +122,200 @@ class App {
         this.controls.enableZoom = false;
         this.controls.rotateSpeed = CONFIG.animation.rotateSpeed;
         this.controls.target.set(0, CONFIG.camera.eyeLevel, 0);
+
+        // Gyroscope Controls (for Magic Window mode)
+        this.deviceOrientationControls = new DeviceOrientationControls(this.camera);
+        // Default to disabled until permission is granted and user starts experience
+        this.isGyroEnabled = false;
     }
 
     initCardboardMode() {
-        if (!this.isIOSDevice) return;
+        // WebXR polyfill provides navigator.xr on all devices
+        // We only use WebXR, no fallback to CardboardModeManager
 
-        console.log('iOS/Cardboard mode enabled - using stereo rendering');
+        if (navigator.xr) {
+            navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                if (supported) {
+                    console.log('WebXR immersive-vr supported (native or polyfill)');
+                    this.initWebXRMode();
+                } else {
+                    console.log('WebXR immersive-vr not supported on this device');
+                }
+            }).catch(e => {
+                console.log('WebXR check failed:', e);
+            });
+        } else {
+            console.log('No WebXR available');
+        }
+    }
 
+    initWebXRMode() {
+        // Enable WebXR on the renderer
+        this.renderer.xr.enabled = true;
+
+        // Set reference space type
+        this.renderer.xr.setReferenceSpaceType('local');
+
+        // Create custom VR button with Google Cardboard icon
+        this.createVRButton();
+
+        // Listen for session start/end
+        this.renderer.xr.addEventListener('sessionstart', () => {
+            console.log('WebXR session started');
+            this.isVRMode = true;
+            // Disable manual gyro scale/control, let WebXR handle it
+            if (this.deviceOrientationControls) this.deviceOrientationControls.enabled = false;
+
+            if (this.panoramaViewer) this.panoramaViewer.setVRMode(true);
+            if (this.vrButton) this.vrButton.style.display = 'none';
+        });
+
+        this.renderer.xr.addEventListener('sessionend', () => {
+            console.log('WebXR session ended');
+            this.isVRMode = false;
+            // Re-enable manual gyro if it was active
+            if (this.deviceOrientationControls && this.isGyroEnabled) {
+                this.deviceOrientationControls.enabled = true;
+            }
+
+            if (this.panoramaViewer) this.panoramaViewer.setVRMode(false);
+            if (this.vrButton) {
+                // Custom button needs flex, standard one needs block/initial
+                this.vrButton.style.display = (this.vrButton.id === 'vr-goggle-button') ? 'flex' : '';
+            }
+
+            // Pulihkan state renderer setelah sesi VR polyfill berakhir
+            // untuk mencegah error "drawElements: no buffer"
+            const resetRenderer = () => {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+            };
+
+            resetRenderer();
+
+            // Force resize again after a short delay to handle transition animations
+            setTimeout(resetRenderer, 100);
+            setTimeout(resetRenderer, 500);
+
+            this.renderer.state.reset();
+        });
+    }
+
+    createVRButton() {
+        // Create VR button with Google Cardboard goggle icon
+        const button = document.createElement('button');
+        button.id = 'vr-goggle-button';
+
+        // SVG icon for Google Cardboard glasses (Outline)
+        button.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="32" height="32">
+                <path d="M20.74 6H3.21C2.55 6 2 6.57 2 7.28v10.44c0 .7.55 1.28 1.23 1.28h4.79c.52 0 .98-.34 1.14-.84l.99-3.11c.23-.71.88-1.19 1.62-1.19h.46c.74 0 1.39.48 1.62 1.19l.99 3.11c.16.5.63.84 1.14.84h4.79c.68 0 1.23-.57 1.23-1.28V7.28c0-.71-.55-1.28-1.26-1.28zM7.5 14.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm9 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
+            </svg>
+        `;
+
+        // Style the button
+        Object.assign(button.style, {
+            position: 'fixed',
+            bottom: '20px',
+            right: '25px', // Slightly adjusted
+            width: '50px',
+            height: '50px',
+            borderRadius: '50%',
+            border: '2px solid rgba(255, 255, 255, 0.8)', // White outline border
+            background: 'rgba(0, 0, 0, 0.3)', // Semi-transparent dark background
+            backdropFilter: 'blur(4px)',
+            cursor: 'pointer',
+            display: 'none', // Initially hidden
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: '9999',
+            transition: 'all 0.3s ease'
+        });
+
+        // Hover effect
+        button.onmouseenter = () => {
+            button.style.transform = 'scale(1.1)';
+            button.style.background = 'rgba(0, 0, 0, 0.5)';
+            button.style.borderColor = 'white';
+        };
+        button.onmouseleave = () => {
+            button.style.transform = 'scale(1)';
+            button.style.background = 'rgba(0, 0, 0, 0.3)';
+            button.style.borderColor = 'rgba(255, 255, 255, 0.8)';
+        };
+
+        // Click handler - show VR instruction overlay first
+        button.addEventListener('click', () => {
+            if (!navigator.xr) {
+                console.log('WebXR not available');
+                alert('WebXR tidak tersedia di browser ini.');
+                return;
+            }
+            // Show the instruction overlay
+            if (this.vrOverlay) {
+                this.vrOverlay.show();
+            }
+        });
+
+        document.body.appendChild(button);
+        this.vrButton = button;
+    }
+
+    // Called by VROverlay when user clicks "ENTER VR"
+    async startVRSession() {
+        try {
+            // iOS Safari scroll trick to hide address bar
+            if (this.isIOSDevice) {
+                console.log('iOS: Triggering scroll-to-hide trick...');
+                await this.triggerIOSFullscreen();
+            }
+
+            // Start WebXR session
+            const session = await navigator.xr.requestSession('immersive-vr', {
+                optionalFeatures: ['local-floor', 'bounded-floor']
+            });
+            this.renderer.xr.setSession(session);
+            console.log('WebXR session started via overlay');
+        } catch (e) {
+            console.log('Failed to start WebXR session:', e.message);
+        }
+    }
+
+    // iOS Safari trick: make page taller than viewport, scroll to trigger bar hide
+    triggerIOSFullscreen() {
+        return new Promise((resolve) => {
+            // Save original styles
+            const originalHeight = document.body.style.height;
+            const originalOverflow = document.body.style.overflow;
+
+            // Make body taller than viewport to allow scroll
+            document.body.style.height = (window.innerHeight + 100) + 'px';
+            document.body.style.overflow = 'auto';
+
+            // Scroll down 1px to trigger Safari to hide toolbar
+            setTimeout(() => {
+                window.scrollTo(0, 1);
+
+                // Wait a bit for Safari to process
+                setTimeout(() => {
+                    // Restore original styles
+                    document.body.style.height = originalHeight || '';
+                    document.body.style.overflow = originalOverflow || '';
+
+                    // Scroll back to top
+                    window.scrollTo(0, 0);
+
+                    console.log('iOS scroll trick completed');
+                    resolve();
+                }, 300);
+            }, 100);
+        });
+    }
+
+
+    initCustomCardboard() {
         this.cardboardManager = new CardboardModeManager(
             this.renderer,
             this.camera,
@@ -96,6 +325,7 @@ class App {
 
         // Sync mode changes with components
         this.cardboardManager.onModeChange = (isVR) => {
+            this.isVRMode = isVR; // Sync state
             if (this.panoramaViewer) {
                 this.panoramaViewer.setVRMode(isVR);
                 // Fix: If in cinematic tour, ensure back button stays hidden when exiting VR
@@ -103,8 +333,14 @@ class App {
                     this.panoramaViewer.setBackButtonVisibility(false);
                 }
             }
-            if (this.stereoVideoPlayer) {
-                this.stereoVideoPlayer.setStereoMode(isVR && !!this.cardboardManager?.stereoEffect);
+            if (this.cardboardButton) {
+                this.cardboardButton.setVRState(isVR);
+            }
+        };
+
+        this.cardboardManager.onInteractionModeChange = (mode) => {
+            if (this.gazeController) {
+                this.gazeController.setInteractionMode(mode);
             }
         };
     }
@@ -116,14 +352,14 @@ class App {
         // Gradient background sphere
         this.createGradientBackground();
 
-        // Lighting
-        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 3);
+        // Lighting - Boosted for VR brightness
+        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 10);
         this.scene.add(light);
     }
 
     initComponents() {
         // Gaze controller
-        this.gazeController = new GazeController(this.camera, this.renderer);
+        this.gazeController = new GazeController(this.scene, this.camera, this.renderer);
 
         // Panorama viewer
         this.panoramaViewer = new PanoramaViewer(
@@ -132,28 +368,6 @@ class App {
             this.camera,
             this.renderer
         );
-
-        // Stereo video player
-        this.stereoVideoPlayer = new StereoVideoPlayer(
-            this.scene,
-            this.camera,
-            this.renderer,
-            () => this.onVideoBack(),
-            () => this.enterCardboardMode(),
-            () => this.exitCardboardMode()
-        );
-
-        // Orbital menu (hidden initially)
-        this.orbitalMenu = new OrbitalMenu(this.scene, this.camera, (index) => {
-            this.onMainMenuSelect(index);
-        });
-        this.orbitalMenu.hide();
-
-        // Sub-menu placeholder
-        this.subMenu = null;
-
-        // Tour Director for cinematic guided tour
-        this.tourDirector = new TourDirector(this);
     }
 
     initEventListeners() {
@@ -179,17 +393,34 @@ class App {
                 this.camera.fov = CONFIG.fov.default;
                 this.camera.updateProjectionMatrix();
                 this.isVRMode = false;
-                if (this.subMenu) this.subMenu.setVRMode(false);
                 this.panoramaViewer.setVRMode(false);
             });
 
+            // VR Controller / Cardboard v2 Button Trigger
+            this.renderer.xr.getController(0).addEventListener('select', () => {
+                if (this.gazeController && this.gazeController.hoveredObject) {
+                    console.log('[VR] Manual trigger via button');
+                    this.gazeController.trigger(this.gazeController.hoveredObject, this.gazeController.hoveredIntersect);
+                }
+            });
         }
 
-        // Mouse Click Interaction (Desktop)
+        // Mouse Click Interaction (Desktop & Cardboard Button)
         window.addEventListener('click', (event) => {
-            // Ignore clicks if in VR mode (handled by controller selection)
-            if (this.isVRMode) return;
+            // Ignore clicks if in WebXR mode (handled by controller selection)
+            // But handle them if in Cardboard mode (handled by gaze trigger)
+            if (this.renderer.xr.enabled && this.renderer.xr.isPresenting) return;
 
+            if (this.isCardboardMode) {
+                // Cardboard mode: click triggers whatever is under the reticle
+                if (this.gazeController && this.gazeController.hoveredObject) {
+                    console.log('[Cardboard] Button trigger');
+                    this.gazeController.trigger(this.gazeController.hoveredObject, this.gazeController.hoveredIntersect);
+                }
+                return;
+            }
+
+            // Normal Interaction (Desktop)
             // Use canvas bounds for accurate mouse position
             const rect = this.renderer.domElement.getBoundingClientRect();
             const mouse = new THREE.Vector2();
@@ -243,6 +474,74 @@ class App {
                     target = target.parent;
                 }
 
+                if (target && target.userData.isInteractable && target.onClick) {
+                    target.onClick(intersects[0]);
+                }
+            }
+        });
+
+        // Touch Tap Interaction (Desktop Touchscreen)
+        // OrbitControls may consume touch events, preventing 'click' from firing on tap.
+        // This detects short taps and performs the same raycast as mouse click.
+        let touchStartPos = null;
+        let touchStartTime = 0;
+
+        window.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                touchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                touchStartTime = Date.now();
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', (e) => {
+            if (!touchStartPos) return;
+
+            const touch = e.changedTouches[0];
+            const dx = touch.clientX - touchStartPos.x;
+            const dy = touch.clientY - touchStartPos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const duration = Date.now() - touchStartTime;
+
+            touchStartPos = null;
+
+            // Only treat as tap if short duration and minimal movement
+            if (duration > 300 || dist > 10) return;
+
+            // Skip if in VR
+            if (this.renderer.xr.enabled && this.renderer.xr.isPresenting) return;
+
+            const rect = this.renderer.domElement.getBoundingClientRect();
+            const mouse = new THREE.Vector2();
+            mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, this.camera);
+            this.scene.updateMatrixWorld(true);
+
+            // Admin interaction
+            if (this.panoramaViewer && this.panoramaViewer.isAdminMode) {
+                const adminObjects = [this.panoramaViewer.sphere];
+                if (this.panoramaViewer.group) {
+                    this.panoramaViewer.group.traverse(child => {
+                        if (child.userData && child.userData.hotspotData) {
+                            adminObjects.push(child);
+                        }
+                    });
+                }
+                const adminIntersects = raycaster.intersectObjects(adminObjects, false);
+                if (this.panoramaViewer.handleAdminClick(adminIntersects)) return;
+            }
+
+            // Normal interaction
+            const interactables = this.getInteractables();
+            const intersects = raycaster.intersectObjects(interactables, true);
+
+            if (intersects.length > 0) {
+                let target = intersects[0].object;
+                while (target && !target.userData.isInteractable && target.parent) {
+                    target = target.parent;
+                }
                 if (target && target.userData.isInteractable && target.onClick) {
                     target.onClick(intersects[0]);
                 }
@@ -329,51 +628,6 @@ class App {
         return { raycaster, intersects };
     }
 
-    initLandingScreen() {
-        const landingScreen = document.getElementById('landing-screen');
-        const enterBtn = document.getElementById('enter-vr-btn');
-
-        if (!enterBtn) return;
-
-        enterBtn.addEventListener('click', async () => {
-            // Request fullscreen
-            await this.requestFullscreen();
-
-            // Lock landscape
-            this.lockLandscape();
-
-            // Resume audio context
-            if (THREE.AudioContext?.state === 'suspended') {
-                THREE.AudioContext.resume();
-            }
-
-            // Fade out landing screen
-            landingScreen.style.opacity = '0';
-            setTimeout(() => {
-                landingScreen.style.display = 'none';
-            }, 500);
-
-            // Show welcome screen 
-            // CINEMATIC MODE: Skip welcome screen, go straight to director?
-            // Or keep welcome screen but 'Enter' starts the tour?
-
-            // Hide menu just in case
-            if (this.orbitalMenu) this.orbitalMenu.hide();
-
-            // Start Director
-            if (this.tourDirector) {
-                console.log('Starting Cinematic Tour...');
-                this.tourDirector.start();
-            }
-
-            // Enter cardboard mode on mobile (slight delay for fullscreen)
-            setTimeout(() => {
-                if (this.isMobileDevice || this.isIOSDevice) {
-                    this.enterCardboardMode();
-                }
-            }, 100);
-        });
-    }
 
     // ==================== BACKGROUND ====================
 
@@ -464,158 +718,16 @@ class App {
     }
 
     onWelcomeStart() {
-        this.welcomeScreen.hide();
-        this.currentState = 'cinematic-tour';
-
-        // CINEMATIC MODE: Start Director instead of Menu
-        if (this.tourDirector) {
-            console.log('Welcome Screen completed. Starting Cinematic Tour...');
-            this.tourDirector.start();
-        } else {
-            // Fallback to menu if no director
-            this.currentState = 'main-menu';
-            this.orbitalMenu.show();
-        }
-    }
-
-    onMainMenuSelect(index) {
-        const location = TOUR_DATA[index];
-        console.log('Main menu selected:', location.title);
-
-        if (location.subLocations?.length > 0) {
-            this.enterTorajaMode(location);
-        } else if (location.stereoVideo) {
-            this.enterStereoVideoMode(location);
-        } else {
-            this.enterPanoramaMode(location);
-        }
-    }
-
-    /**
-     * Load a location by index - used by TourDirector
-     */
-    loadLocation(index) {
-        const location = TOUR_DATA[index];
-        if (!location) {
-            console.error('Invalid location index:', index);
-            return;
-        }
-
-        console.log('Loading location:', location.title);
-        this.currentState = 'cinematic-tour';
-
-        // Hide menu if visible
-        if (this.orbitalMenu) this.orbitalMenu.hide();
-        if (this.subMenu) this.subMenu.hide();
-
-        // Load panorama
-        this.panoramaViewer.loadFromLocation(location);
-        this.panoramaViewer.setBackButtonVisibility(false); // No back in tour mode
-        this.panoramaViewer.setAudioButtonsPosition('standalone');
-
-        // CRITICAL FIX: Hide legacy AudioControls from PanoramaViewer
-        // They overlap with TourDirector's navigation buttons
-        if (this.panoramaViewer.audioControls) {
-            this.panoramaViewer.audioControls.setVisible(false);
-            // BRUTE FORCE: Move them to infinity to ensure no raycast hits
-            this.panoramaViewer.audioControls.setPosition('standalone', { y: 10000 });
-        }
-    }
-
-    enterTorajaMode(location) {
-        this.orbitalMenu.hide();
-        this.showSubMenu(location);
-        this.panoramaViewer.loadFromLocation(location.subLocations[0]);
-        this.panoramaViewer.setBackButtonVisibility(false);
-
-        // Pass dynamic angle from SubMenu logic
-        const lastItemTheta = this.subMenu.getLastItemTheta();
-        this.panoramaViewer.setAudioButtonsPosition('with-dock', location.subLocations.length, lastItemTheta);
-
-        this.currentState = 'toraja-mode';
-    }
-
-    enterStereoVideoMode(location) {
-        this.orbitalMenu.hide();
-        this.currentState = 'stereo-video';
-        this.currentSubMenuParent = null;
-
-        if (location.projection === 'flat') {
-            // 2D HTML video player
-            if (this.isCardboardMode) {
-                this.exitCardboardMode(true);
-            }
-            this.stereoVideoPlayer.play2D(location.stereoVideo);
-        } else {
-            // 3D VR video player
-            this.stereoVideoPlayer.load(
-                location.stereoVideo,
-                true,
-                location.projection || 'curved',
-                location.format || 'stereo'
-            );
-            if (this.isCardboardMode) {
-                this.stereoVideoPlayer.setStereoMode(true);
-            }
-        }
-
-        if (this.controls) this.controls.enabled = true;
-    }
-
-    enterPanoramaMode(location) {
-        this.orbitalMenu.hide();
+        // Obsolete if landing screen loads directly, but kept for compatibility if called
         this.currentState = 'panorama';
-        this.currentSubMenuParent = null;
-        this.panoramaViewer.loadFromLocation(location);
-        this.panoramaViewer.setBackButtonVisibility(true);
-        this.panoramaViewer.setAudioButtonsPosition('standalone');
-    }
-
-    showSubMenu(parentLocation) {
-        if (this.subMenu) {
-            this.scene.remove(this.subMenu.group);
-            this.subMenu = null;
-        }
-
-        this.currentSubMenuParent = parentLocation;
-        this.subMenu = new SubMenu(
-            this.scene,
-            this.camera,
-            parentLocation,
-            (subLocation) => this.onSubMenuSelect(subLocation),
-            () => this.onSubMenuBack()
-        );
-        this.subMenu.show();
-        this.subMenu.setActive(0);
-
-        if (this.isVRMode) this.subMenu.setVRMode(true);
-    }
-
-    onSubMenuSelect(subLocation) {
-        console.log('Switching to scene:', subLocation.name);
-        this.panoramaViewer.loadFromLocation(subLocation);
-    }
-
-    onSubMenuBack() {
-        if (this.subMenu) this.subMenu.hide();
-        this.panoramaViewer.hide();
-        this.currentState = 'main-menu';
-        this.currentSubMenuParent = null;
-        this.orbitalMenu.show();
+        console.log('Loading Museum Lobby...');
+        this.panoramaViewer.navigateToScene('assets/Museum Kota Makassar/lobby_C12D6770.jpg');
     }
 
     onPanoramaBack() {
-        if (this.currentState === 'cinematic-tour') return;
-        this.panoramaViewer.hide();
-        this.currentState = 'main-menu';
-        this.orbitalMenu.show();
-    }
-
-    onVideoBack() {
-        this.stereoVideoPlayer.hide();
-        this.currentState = 'main-menu';
-        this.orbitalMenu.show();
-        if (this.controls) this.controls.enabled = true;
+        // Menu is disabled, so we just stay in the museum or reload lobby
+        console.log('Back clicked - Menu disabled, staying in museum.');
+        this.panoramaViewer.navigateToScene('assets/Museum Kota Makassar/lobby_C12D6770.jpg');
     }
 
     // ==================== UTILITIES ====================
@@ -651,11 +763,33 @@ class App {
         const delta = this.clock.getDelta();
 
         // Update controls
-        if (this.controls) this.controls.update();
+        // If gyro is enabled and active, use it. Otherwise fallback to orbit controls.
+        // We check deviceOrientationControls.enabled just in case
+        if (this.isGyroEnabled && this.deviceOrientationControls) {
+            this.deviceOrientationControls.update();
+        } else if (this.controls) {
+            this.controls.update();
+        }
 
         // Update cardboard manager (gyroscope)
         if (this.cardboardManager) {
             this.cardboardManager.update();
+
+            // Update debug info if visible
+            if (this.debugInfo && (this.cardboardManager.isCardboardMode || window.location.search.includes('debug=true'))) {
+                const gyro = this.cardboardManager.gyroscopeControls;
+                const data = gyro?.deviceOrientation;
+                const isHttps = window.location.protocol === 'https:';
+
+                this.debugInfo.style.display = 'block';
+                this.debugInfo.innerHTML = `
+                    <div style="background:rgba(0,0,0,0.7); padding:4px; border-radius:4px;">
+                    GYRO: ${gyro?.enabled ? 'ON' : 'OFF'} | DATA: ${gyro?.gotAnyData ? 'YES' : 'NO'}<br>
+                    A:${data?.alpha?.toFixed(1) || 0} B:${data?.beta?.toFixed(1) || 0} G:${data?.gamma?.toFixed(1) || 0}<br>
+                    HTTPS: ${isHttps ? '<span style="color:#4f4">YES</span>' : '<span style="color:#f44">NO - SENSORS BLOCKED</span>'}
+                    </div>
+                `;
+            }
         }
 
         // Build interactables list
@@ -665,47 +799,109 @@ class App {
         this.gazeController.update(this.scene, interactables, delta);
 
         // Update components
-        if (this.welcomeScreen) this.welcomeScreen.update(delta);
-
-        // SAFEGUARD: Ensure Orbital Menu is hidden in Cinematic Mode
-        if (this.currentState === 'cinematic-tour' && this.orbitalMenu.group.visible) {
-            this.orbitalMenu.hide();
-        }
-        this.orbitalMenu.update(delta);
-        if (this.subMenu) this.subMenu.update(delta);
         this.panoramaViewer.update(delta);
-        if (this.stereoVideoPlayer) this.stereoVideoPlayer.update(delta);
 
-        // Update TourDirector
-        if (this.tourDirector) this.tourDirector.update(delta);
+        // Render (WebVR, stereo, or normal)
+        let usedWebVR = false;
+        if (this.webVRHelper && this.webVRHelper.isPresenting) {
+            this.webVRHelper.render();
+            usedWebVR = true;
+        }
 
-        // Render (stereo or normal)
-        const usedStereo = this.cardboardManager?.render(this.scene, this.camera);
-        if (!usedStereo) {
-            this.renderer.render(this.scene, this.camera);
+        if (!usedWebVR) {
+            const usedStereo = this.cardboardManager?.render(this.scene, this.camera);
+            if (!usedStereo) {
+                this.renderer.render(this.scene, this.camera);
+            }
         }
     }
 
     getInteractables() {
         const list = [];
-
-        // TourDirector buttons FIRST for click priority
-        if (this.tourDirector) {
-            const tourButtons = this.tourDirector.getInteractables();
-            list.push(...tourButtons);
-        }
-
-        // Then other UI elements
-        if (this.welcomeScreen?.group.visible) list.push(this.welcomeScreen.group);
-        if (this.orbitalMenu.group.visible) list.push(this.orbitalMenu.group);
-        if (this.subMenu?.group.visible) list.push(this.subMenu.group);
+        // Only panorama viewer's group (hotspots and dock) are interactable now
         if (this.panoramaViewer.group.visible) list.push(this.panoramaViewer.group);
-        if (this.stereoVideoPlayer?.group.visible) list.push(this.stereoVideoPlayer.group);
-
         return list;
     }
 
     // ==================== CLEANUP ====================
+
+    initLandingScreen() {
+        const landingScreen = document.getElementById('landing-screen');
+        const enterBtn = document.getElementById('enter-vr-btn');
+
+        if (!enterBtn) return;
+
+        enterBtn.addEventListener('click', async () => {
+            // Request fullscreen
+            await this.requestFullscreen();
+
+            // Lock landscape
+            this.lockLandscape();
+
+            // Resume audio context
+            if (THREE.AudioContext?.state === 'suspended') {
+                await THREE.AudioContext.resume();
+            }
+
+            // Request Gyroscope Permission (iOS 13+)
+            // This must be done on user gesture (click), just like audio resume
+            try {
+                const gyroGranted = await requestGyroscopePermission();
+                if (gyroGranted) {
+                    // Test if gyroscope actually works by waiting for a real event
+                    const hasRealGyro = await new Promise((resolve) => {
+                        const timeout = setTimeout(() => {
+                            window.removeEventListener('deviceorientation', handler);
+                            resolve(false);
+                        }, 1000); // Wait 1 second for gyro event
+
+                        const handler = (e) => {
+                            // Real gyro gives non-null alpha/beta/gamma
+                            if (e.alpha !== null || e.beta !== null || e.gamma !== null) {
+                                clearTimeout(timeout);
+                                window.removeEventListener('deviceorientation', handler);
+                                resolve(true);
+                            }
+                        };
+                        window.addEventListener('deviceorientation', handler);
+                    });
+
+                    if (hasRealGyro) {
+                        this.isGyroEnabled = true;
+                        console.log('Gyroscope enabled for Magic Window mode');
+                    } else {
+                        console.log('No real gyroscope detected, using OrbitControls');
+                    }
+                }
+            } catch (e) {
+                console.warn('Gyroscope request failed:', e);
+            }
+
+            // Fade out landing screen
+            landingScreen.style.opacity = '0';
+            setTimeout(() => {
+                landingScreen.style.display = 'none';
+            }, 500);
+
+            // Hide menu just in case (if exists)
+            if (this.orbitalMenu) this.orbitalMenu.hide();
+
+            // Load Lobby Panorama directly (normal mode, not VR)
+            console.log('Loading Museum Lobby...');
+            this.currentState = 'panorama';
+            this.panoramaViewer.navigateToScene('assets/Museum Kota Makassar/lobby_C12D6770.jpg');
+            this.panoramaViewer.setBackButtonVisibility(false);
+            this.panoramaViewer.setAudioButtonsPosition('standalone');
+
+            // Show VR Button (if exists) after user starts experience
+            if (this.vrButton) {
+                // Custom button needs flex, standard one needs block/initial
+                this.vrButton.style.display = (this.vrButton.id === 'vr-goggle-button') ? 'flex' : '';
+            }
+
+            // Note: User can click the VR button to enter WebXR VR mode
+        });
+    }
 
     dispose() {
         // Remove event listeners
@@ -713,12 +909,9 @@ class App {
         this.container.removeEventListener('wheel', this.boundOnWheel);
 
         // Dispose components
-        this.tourDirector?.dispose?.();
         this.panoramaViewer?.dispose?.();
         this.gazeController?.dispose?.();
         this.cardboardManager?.dispose();
-        this.stereoVideoPlayer?.dispose();
-        this.orbitalMenu?.dispose?.();
     }
 }
 

@@ -167,70 +167,6 @@
       "target_name": "Orde Lama dan Orde Baru",
       "type": "arrow",
       "label": "Orde Lama dan Orde Baru"
-    },
-    {
-      "yaw": 164.97,
-      "pitch": -52.98,
-      "target": "",
-      "target_name": "Ratu Wilhemina",
-      "type": "info",
-      "label": "Ratu Wilhemina"
-    },
-    {
-      "yaw": 23.17,
-      "pitch": -4.81,
-      "target": "assets/Museum Kota Makassar/009_Masa Kompeni Kolonial_AFE1CF.jpg",
-      "type": "info",
-      "label": ""
-    },
-    {
-      "yaw": 65.55,
-      "pitch": -4.55,
-      "target": "assets/Museum Kota Makassar/059_Masa Kompeni Kolonial_2B1221.jpg",
-      "type": "info",
-      "label": ""
-    },
-    {
-      "yaw": 123.51,
-      "pitch": -5.12,
-      "target": "assets/Museum Kota Makassar/041_Masa Kompeni Kolonial_47DB6B.jpg",
-      "type": "info",
-      "label": ""
-    },
-    {
-      "yaw": 177.51,
-      "pitch": -3.52,
-      "target": "assets/Museum Kota Makassar/056_Masa Kompeni Kolonial_219C65.jpg",
-      "type": "info",
-      "label": ""
-    },
-    {
-      "yaw": -120.94,
-      "pitch": -6.27,
-      "target": "assets/Museum Kota Makassar/075_Masa Kompeni Kolonial_B25BD5.jpg",
-      "type": "info",
-      "label": ""
-    },
-    {
-      "yaw": -96.82,
-      "pitch": -7.87,
-      "target": "assets/Museum Kota Makassar/018_Masa Kompeni Kolonial_4D1C7F.jpg",
-      "type": "info",
-      "label": ""
-    },
-    {
-      "yaw": -82.02,
-      "pitch": -8.96,
-      "target": "assets/Museum Kota Makassar/036_Masa Kompeni Kolonial_A34E74.jpg",
-      "type": "info",
-      "label": ""
-    },
-    {
-      "yaw": -64.6,
-      "pitch": -9.5,
-      "target": "assets/Museum Kota Makassar/013_Masa Kompeni Kolonial_465E5A.jpg",
-      "type": "info",
-      "label": ""
     }
   ],
   "assets/Museum Kota Makassar/055_Makassar Awal 7_C4C995.jpg": [
@@ -589,7 +525,7 @@
       "pitch": -0.03,
       "target": "",
       "target_name": "Benteng Somba Opu",
-      "type": "info",
+      "type": "arrow",
       "label": "Benteng Somba Opu"
     }
   ],
@@ -651,24 +587,6 @@
       "target_name": "Masa Kompeni Kolonial",
       "type": "arrow",
       "label": "Masa Kompeni Kolonial"
-    }
-  ],
-  "assets/Museum Kota Makassar/050_Orde Lama dan Orde Baru_B1BBE1.jpg": [
-    {
-      "yaw": 111.27,
-      "pitch": -14.65,
-      "target": "assets/Museum Kota Makassar/011_Masa Kompeni Kolonial_E02485.jpg",
-      "target_name": "Masa Kompeni Kolonial",
-      "type": "arrow",
-      "label": "Masa Kompeni Kolonial"
-    },
-    {
-      "yaw": 2.28,
-      "pitch": -9.09,
-      "target": "assets/Museum Kota Makassar/065_u2060Masa Perjuangan_8AB9EB.jpg",
-      "target_name": "Masa Perjuangan",
-      "type": "arrow",
-      "label": "Masa Perjuangan"
     }
   ]
 }

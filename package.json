@@ -16,6 +16,8 @@
     "vite": "^7.2.7"
   },
   "dependencies": {
-    "three": "^0.182.0"
+    "three": "^0.182.0",
+    "webvr-polyfill": "^0.10.12",
+    "webxr-polyfill": "^2.0.3"
   }
 }

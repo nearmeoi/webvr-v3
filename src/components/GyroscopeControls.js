@@ -27,7 +27,7 @@ export class GyroscopeControls {
 
         // Smoothing
         this.smoothedQuaternion = new THREE.Quaternion();
-        this.smoothFactor = 0.1;
+        this.smoothFactor = 0.3; // More responsive (0.1 was too laggy)
 
         // Bind handlers
         this.onDeviceOrientation = this.onDeviceOrientation.bind(this);
@@ -57,21 +57,25 @@ export class GyroscopeControls {
 
         // Store initial camera orientation
         this.initialQuaternion.copy(this.camera.quaternion);
+        this.smoothedQuaternion.copy(this.camera.quaternion);
 
-        // Add event listeners
+        // Add event listeners (Standard + Absolute fallback for Android)
         window.addEventListener('deviceorientation', this.onDeviceOrientation, false);
+        window.addEventListener('deviceorientationabsolute', this.onDeviceOrientation, false);
         window.addEventListener('orientationchange', this.onScreenOrientation, false);
 
         // Get initial screen orientation
         this.screenOrientation = window.orientation || 0;
 
         this.enabled = true;
+        this.gotAnyData = false; // Track if we ever got valid data
         console.log('Gyroscope controls enabled');
         return true;
     }
 
     disable() {
         window.removeEventListener('deviceorientation', this.onDeviceOrientation);
+        window.removeEventListener('deviceorientationabsolute', this.onDeviceOrientation);
         window.removeEventListener('orientationchange', this.onScreenOrientation);
         this.enabled = false;
     }
@@ -79,13 +83,25 @@ export class GyroscopeControls {
     onDeviceOrientation(event) {
         if (!this.enabled) return;
 
-        // Check for valid data (iOS sometimes sends nulls initially)
-        if (event.alpha === null || event.beta === null || event.gamma === null) return;
+        // Check for valid data (some browsers send empty/null initially)
+        // Prefer absolute orientation data if available in the event (for absolute event type)
+        const alpha = event.alpha;
+        const beta = event.beta;
+        const gamma = event.gamma;
+
+        if (alpha === null || beta === null || gamma === null) return;
+
+        // Check for "stuck" zeros (sometimes browsers fire the event but don't provide real data)
+        // We only mark gotAnyData if at least one value is non-zero
+        if (!this.gotAnyData && (Math.abs(alpha) > 0.0001 || Math.abs(beta) > 0.0001 || Math.abs(gamma) > 0.0001)) {
+            console.log('Gyroscope: Real movement data received:', alpha, beta, gamma);
+            this.gotAnyData = true;
+        }
 
         this.deviceOrientation = {
-            alpha: event.alpha || 0,  // Z axis (compass direction)
-            beta: event.beta || 0,    // X axis (front-to-back tilt)
-            gamma: event.gamma || 0   // Y axis (left-to-right tilt)
+            alpha: alpha || 0,
+            beta: beta || 0,
+            gamma: gamma || 0
         };
     }
 
@@ -96,12 +112,10 @@ export class GyroscopeControls {
     update() {
         if (!this.enabled) return;
 
-        // Skip if we haven't received valid orientation yet (prevent camera drop)
-        // A perfectly flat device (0,0,0) is unlikely in VR use case (vertical face)
-        if (this.deviceOrientation.alpha === 0 &&
-            this.deviceOrientation.beta === 0 &&
-            this.deviceOrientation.gamma === 0) {
-            return;
+        if (!this.deviceOrientation.alpha && !this.deviceOrientation.beta) {
+            // Only skip if absolutely NO data (null/undefined)
+            // But if it's 0, it might be valid
+            // Let's just allow it anyway to be safe
         }
 
         const alpha = THREE.MathUtils.degToRad(this.deviceOrientation.alpha);

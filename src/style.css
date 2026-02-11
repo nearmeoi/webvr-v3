@@ -1,3 +1,55 @@
+/* ==================== IOS FAKE FULLSCREEN RESET ==================== */
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-color: #000;
+    /* iOS safe area support */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Fill viewport - covers entire screen including notch area */
+.fill-viewport {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    width: 100vw;
+    height: 100vh;
+    /* Extend to edges on iOS */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+
+/* Canvas should fill entire viewport */
+canvas {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    display: block !important;
+}
+
+/* ==================== LANDING SCREEN ==================== */
+
 #landing-screen {
     position: fixed;
     top: 0;
@@ -15,6 +67,7 @@
     font-family: 'Inter', sans-serif;
     transition: opacity 1.5s ease;
 }
+
 
 .landing-bg {
     position: absolute;
@@ -115,4 +168,436 @@
         margin-top: 30px;
         font-size: 0.7rem;
     }
+}
+
+/* ==================== ONBOARDING SCREEN (3DVISTA STYLE) ==================== */
+
+#onboarding-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 5000;
+    font-family: 'Roboto', sans-serif;
+    color: #333;
+}
+
+.onboarding-window {
+    background: white;
+    width: 90%;
+    max-width: 500px;
+    padding: 40px;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.onboarding-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.onboarding-icon {
+    width: 80px;
+    height: 80px;
+}
+
+.onboarding-window h2 {
+    margin: 0;
+    font-size: 1.8rem;
+    color: #444;
+}
+
+.onboarding-desc {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.onboarding-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.onboarding-btn.default {
+    background: #00AEEF;
+    color: white;
+}
+
+.onboarding-btn.v2 {
+    background: #00AEEF;
+    color: white;
+}
+
+.onboarding-btn:hover {
+    filter: brightness(1.1);
+}
+
+.onboarding-btn:active {
+    transform: scale(0.98);
+}
+
+.onboarding-divider {
+    margin: 30px 0;
+    border: none;
+    border-top: 1px solid #eee;
+}
+
+.onboarding-footer-opt {
+    margin-top: 25px;
+    font-size: 0.9rem;
+    color: #888;
+}
+
+.onboarding-footer-opt label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+/* ==================== VR MIRRORED HUD & MODAL ==================== */
+
+.vr-hud-container {
+    font-family: 'Outfit', sans-serif;
+}
+
+.hud-eye {
+    transition: opacity 0.3s ease;
+}
+
+.hud-btn:hover {
+    opacity: 1 !important;
+    transform: scale(1.1);
+}
+
+.hud-btn svg {
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+}
+
+/* Modal Split System */
+.vr-modal-split {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+.vr-modal-side {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.vr-modal-window {
+    background: #fdfdfd;
+    width: 320px;
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+    pointer-events: auto;
+    color: #333;
+}
+
+.vr-modal-window h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.vr-small-desc {
+    font-size: 0.85rem;
+    color: #777;
+    margin-bottom: 20px;
+}
+
+.vr-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+.vr-options label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.vr-save-btn,
+.vr-next-btn {
+    width: 100%;
+    padding: 14px;
+    background: #007AFF;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: transform 0.1s, filter 0.2s;
+}
+
+.vr-save-btn:hover,
+.vr-next-btn:hover {
+    filter: brightness(1.1);
+}
+
+.vr-save-btn:active,
+.vr-next-btn:active {
+    transform: scale(0.98);
+}
+
+.vr-back-link:hover {
+    text-decoration: underline !important;
+}
+
+.vr-save-btn:hover {
+    filter: brightness(1.1);
+}
+
+/* Portrait Fix for VR (Alert user to rotate) */
+@media screen and (orientation: portrait) {
+    .vr-hud-container {
+        display: none !important;
+    }
+}
+
+/* ==================== VR INSTRUCTION OVERLAY (Google Cardboard Style) ==================== */
+
+#vr-instruction-overlay {
+    background: #ffffff;
+    font-family: 'Roboto', sans-serif;
+}
+
+/* Base content container — always centered column */
+#vr-instruction-overlay .vr-overlay-content {
+    text-align: center;
+    padding: clamp(16px, 4vmin, 40px);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    gap: clamp(8px, 2vmin, 20px);
+    box-sizing: border-box;
+}
+
+/* ---- Step 1: Centered Logo ---- */
+.vr-overlay-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: clamp(8px, 2vmin, 20px);
+}
+
+.vr-overlay-logo svg {
+    width: clamp(48px, 12vmin, 80px);
+    height: clamp(48px, 12vmin, 80px);
+}
+
+.vr-overlay-logo span {
+    font-size: clamp(0.85rem, 2.5vmin, 1.2rem);
+    color: #666;
+    text-align: center;
+    line-height: 1.3;
+}
+
+/* ---- Steps 2+: Corner Logo ---- */
+.vr-overlay-corner-logo {
+    position: absolute;
+    top: clamp(10px, 2vmin, 20px);
+    right: clamp(10px, 2vmin, 20px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.vr-overlay-corner-logo svg {
+    width: clamp(28px, 6vmin, 48px);
+    height: clamp(28px, 6vmin, 48px);
+}
+
+.vr-overlay-corner-logo span {
+    font-size: clamp(0.7rem, 2vmin, 1rem);
+    color: #EA4335;
+    font-weight: 500;
+}
+
+/* ---- Centered content area (icon + text) ---- */
+.vr-overlay-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(8px, 2vmin, 16px);
+}
+
+/* Gesture icons (rotate phone, swipe hand) */
+.vr-overlay-gesture-icon {
+    width: clamp(50px, 14vmin, 100px);
+    height: clamp(50px, 14vmin, 100px);
+}
+
+/* Description text (Step 1) */
+#vr-instruction-overlay .vr-overlay-desc {
+    margin: 0;
+    font-size: clamp(0.8rem, 2.5vmin, 1rem);
+    color: #666;
+    line-height: 1.6;
+    max-width: 300px;
+    padding: 0 10px;
+}
+
+/* Instruction text (Steps 2+) */
+#vr-instruction-overlay .vr-overlay-instruction {
+    margin: 0;
+    font-size: clamp(1.2rem, 5vmin, 2rem);
+    color: #333;
+    line-height: 1.4;
+}
+
+#vr-instruction-overlay .vr-overlay-instruction strong {
+    color: #000;
+}
+
+/* ---- Actions container ---- */
+.vr-overlay-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(8px, 1.5vmin, 15px);
+    width: 100%;
+    max-width: 300px;
+}
+
+/* Buttons */
+#vr-instruction-overlay .vr-overlay-btn {
+    padding: clamp(10px, 2.5vmin, 14px) clamp(24px, 6vmin, 50px);
+    font-size: clamp(0.8rem, 2.5vmin, 1rem);
+    font-weight: 700;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    width: 100%;
+    max-width: 280px;
+}
+
+#vr-instruction-overlay .vr-overlay-btn.primary {
+    background: #00AEEF;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 174, 239, 0.3);
+}
+
+#vr-instruction-overlay .vr-overlay-btn.primary:hover {
+    background: #0095cc;
+    box-shadow: 0 4px 12px rgba(0, 174, 239, 0.4);
+}
+
+#vr-instruction-overlay .vr-overlay-btn.secondary {
+    background: transparent;
+    color: #666;
+    border: 1px solid #ccc;
+}
+
+#vr-instruction-overlay .vr-overlay-btn.secondary:hover {
+    color: #333;
+    border-color: #999;
+}
+
+/* ---- Landscape (short height) adjustments ---- */
+@media screen and (orientation: landscape) {
+    #vr-instruction-overlay .vr-overlay-content {
+        padding: clamp(8px, 2vmin, 20px);
+        gap: clamp(4px, 1.5vmin, 12px);
+    }
+
+    .vr-overlay-logo {
+        flex-direction: row;
+        margin-bottom: clamp(4px, 1vmin, 10px);
+    }
+
+    .vr-overlay-logo svg {
+        width: clamp(32px, 8vmin, 56px);
+        height: clamp(32px, 8vmin, 56px);
+    }
+
+    .vr-overlay-gesture-icon {
+        width: clamp(40px, 12vmin, 80px);
+        height: clamp(40px, 12vmin, 80px);
+    }
+
+    #vr-instruction-overlay .vr-overlay-btn {
+        padding: clamp(8px, 2vmin, 12px) clamp(20px, 5vmin, 40px);
+        max-width: 240px;
+    }
+}
+
+/* ---- Very small screens ---- */
+@media screen and (max-height: 360px) {
+    .vr-overlay-center {
+        gap: 4px;
+    }
+
+    .vr-overlay-gesture-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    #vr-instruction-overlay .vr-overlay-instruction {
+        font-size: 0.8rem;
+    }
+}
+
+/* Helper for iOS Fullscreen Scroll Trick */
+/* Must apply to BOTH html and body to override overflow:hidden */
+html.ios-scroll-active,
+body.ios-scroll-active {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: auto !important;
+    min-height: 100vh;
+    position: relative !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Overlay must be sticky (not fixed/absolute) during scroll mode.
+   Sticky = stays visually pinned at top, but page CAN scroll,
+   which triggers iOS Safari address bar hiding */
+body.ios-scroll-active #vr-instruction-overlay {
+    position: sticky !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    z-index: 99999 !important;
 }

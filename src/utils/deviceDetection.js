@@ -31,17 +31,19 @@ export function hasGyroscope() {
  * Returns a promise that resolves to true if permission granted
  */
 export async function requestGyroscopePermission() {
+    console.log('Detecting DeviceOrientationEvent.requestPermission...');
     if (typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function') {
         try {
             const permission = await DeviceOrientationEvent.requestPermission();
+            console.log('Gyroscope permission response:', permission);
             return permission === 'granted';
         } catch (e) {
-            console.error('Gyroscope permission error:', e);
+            console.error('Gyroscope permission exception:', e);
             return false;
         }
     }
-    // Non-iOS or older iOS - permission not required
+    console.log('Standard DeviceOrientationEvent.requestPermission not found or not required');
     return true;
 }
 

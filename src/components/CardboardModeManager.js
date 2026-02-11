@@ -1,8 +1,10 @@
+import * as THREE from 'three';
 import { StereoEffect } from './StereoEffect.js';
 import { CardboardButton } from './CardboardButton.js';
 import { CardboardUI } from './CardboardUI.js';
 import { GyroscopeControls } from './GyroscopeControls.js';
 import { CONFIG } from '../config.js';
+import { iOSFullscreenHelper } from '../utils/iOSFullscreenHelper.js';
 
 /**
  * CardboardModeManager - Handles iOS Cardboard/Stereo VR mode
@@ -22,6 +24,9 @@ export class CardboardModeManager {
         this.isCardboardMode = false;
         this.gyroscopeEnabled = false;
 
+        // iOS fullscreen helper
+        this.iOSFullscreen = new iOSFullscreenHelper();
+
         // Callbacks for component sync
         this.onModeChange = null;
     }
@@ -37,8 +42,17 @@ export class CardboardModeManager {
         );
         this.cardboardUI = new CardboardUI(
             () => this.exit(),
-            () => console.log('Settings clicked')
+            (viewer) => this.onViewerChange(viewer)
         );
+    }
+
+    onViewerChange(viewer) {
+        console.log('Viewer changed to:', viewer);
+        if (this.onInteractionModeChange) {
+            // v2 means button trigger, others use gaze timer for now
+            const mode = (viewer === 'v2') ? 'button' : 'gaze';
+            this.onInteractionModeChange(mode);
+        }
     }
 
     /**
@@ -47,17 +61,28 @@ export class CardboardModeManager {
     async initGyroscope() {
         if (this.gyroscopeEnabled) return true;
 
-        this.gyroscopeControls = new GyroscopeControls(this.camera, this.renderer.domElement);
-        const success = await this.gyroscopeControls.enable();
-
-        if (success) {
-            this.gyroscopeEnabled = true;
-            console.log('Gyroscope controls initialized');
-        } else {
-            console.log('Gyroscope initialization failed, using touch controls');
+        if (this.gyroscopeControls) {
+            this.gyroscopeControls.dispose();
         }
 
-        return success;
+        this.gyroscopeControls = new GyroscopeControls(this.camera, this.renderer.domElement);
+
+        try {
+            console.log('Requesting gyroscope access...');
+            const success = await this.gyroscopeControls.enable();
+
+            if (success) {
+                this.gyroscopeEnabled = true;
+                console.log('Gyroscope controls initialized successfully');
+                return true;
+            } else {
+                console.warn('Gyroscope initialization failed (Permission denied or sensor unavailable)');
+                return false;
+            }
+        } catch (err) {
+            console.error('Error during gyroscope initialization:', err);
+            return false;
+        }
     }
 
     /**
@@ -66,9 +91,38 @@ export class CardboardModeManager {
     async enter() {
         if (this.isCardboardMode) return;
 
+        // Skip onboarding check
+        const skipOnboarding = localStorage.getItem('skip-vr-onboarding') === 'true';
+        if (!skipOnboarding && this.cardboardUI) {
+            // Enter VR mode (Stereo) first so the modal is mirrored correctly
+            await this.actuallyEnterVR();
+            this.cardboardUI.showOnboarding((mode, dontShow) => {
+                if (dontShow) {
+                    localStorage.setItem('skip-vr-onboarding', 'true');
+                    localStorage.setItem('vr-interaction-mode', mode);
+                }
+                if (this.onInteractionModeChange) this.onInteractionModeChange(mode);
+            });
+        } else {
+            // Apply saved preference if skipped
+            const savedMode = localStorage.getItem('vr-interaction-mode') || 'gaze';
+            if (this.onInteractionModeChange) this.onInteractionModeChange(savedMode);
+            await this.actuallyEnterVR();
+        }
+    }
+
+    async actuallyEnterVR() {
+        // Resume AudioContext if suspended (standard Web Audio policy)
+        console.log('Resuming AudioContext if needed...');
+        if (THREE.AudioContext && THREE.AudioContext.state === 'suspended') {
+            await THREE.AudioContext.resume();
+        }
+
         // Initialize gyroscope if needed
+        console.log('Initializing Gyroscope if needed...');
         if (!this.gyroscopeEnabled) {
-            await this.initGyroscope();
+            const gyroSuccess = await this.initGyroscope();
+            console.log('Gyro init success:', gyroSuccess);
         }
 
         // Enable stereo effect
@@ -77,7 +131,17 @@ export class CardboardModeManager {
         }
 
         // Request fullscreen
-        await this.requestFullscreen();
+        // Use iOS video hack for iPhone/iPad, standard API for others
+        const isIOSDevice = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        if (isIOSDevice && this.iOSFullscreen) {
+            console.log('Using iOS video fullscreen hack...');
+            const success = await this.iOSFullscreen.enterFullscreen();
+            console.log('iOS fullscreen result:', success);
+        } else {
+            await this.requestFullscreen();
+        }
 
         // Set VR FOV
         this.camera.fov = CONFIG.fov.vr;
@@ -85,7 +149,7 @@ export class CardboardModeManager {
 
         this.isCardboardMode = true;
 
-        // Show UI overlay
+        // Show UI overlay (Mirrored HUD)
         if (this.cardboardUI) this.cardboardUI.show();
 
         // Notify listeners
@@ -93,7 +157,22 @@ export class CardboardModeManager {
             this.onModeChange(true);
         }
 
+        // ALWAYS keep touch controls enabled for accessibility
+        // Gyroscope will ADD to the rotation, but touch swipe remains active
+        if (this.controls) {
+            this.controls.enabled = true;
+            console.log('VR Control Mode: TOUCH ENABLED (Gyro will supplement if available)');
+        }
+
         console.log('Entered Cardboard VR mode');
+    }
+
+    update() {
+        // Only update GyroscopeControls if it has actually received valid data
+        // Otherwise, it overwrites the camera quaternion with zeros, blocking OrbitControls
+        if (this.isCardboardMode && this.gyroscopeEnabled && this.gyroscopeControls && this.gyroscopeControls.gotAnyData) {
+            this.gyroscopeControls.update();
+        }
     }
 
     /**
@@ -139,15 +218,6 @@ export class CardboardModeManager {
         }
 
         console.log('Exited Cardboard VR mode');
-    }
-
-    /**
-     * Update gyroscope controls (call in render loop)
-     */
-    update() {
-        if (this.gyroscopeControls && this.gyroscopeEnabled) {
-            this.gyroscopeControls.update();
-        }
     }
 
     /**

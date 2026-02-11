@@ -11,8 +11,11 @@ export class CardboardButton {
         this.isInVR = false;
         this.button = null;
 
-        // Create button for iOS devices OR when forced via URL (?cardboard=true)
-        if (isIOS() || isCardboardForced()) {
+        // Create button for mobile devices OR when forced via URL (?cardboard=true)
+        // Only if it's NOT an iOS device (iOS handled via landing screen or forced check)
+        // Actually, the button should appear if WebXR is NOT supported.
+        const supportsWebXR = 'xr' in navigator;
+        if (isCardboardForced() || (isMobile() && !supportsWebXR) || isIOS()) {
             this.createButton();
         }
     }
@@ -53,7 +56,8 @@ export class CardboardButton {
             left: '50%',
             transform: 'translateX(-50%)',
             outline: 'none',
-            WebkitTapHighlightColor: 'transparent'
+            WebkitTapHighlightColor: 'transparent',
+            display: inVR ? 'none' : 'block' // Hide in VR
         });
 
         this.button.textContent = inVR ? 'EXIT VR' : 'ENTER VR';
@@ -116,6 +120,31 @@ export class CardboardButton {
         this.updateButtonStyle(false);
 
         if (this.onExitVR) this.onExitVR();
+    }
+
+
+    /**
+ * Updates internal state if VR mode is triggered externally (e.g. from landing screen)
+ */
+    setVRState(isVR) {
+        if (this.isInVR === isVR) return;
+        this.isInVR = isVR;
+        this.updateButtonStyle(isVR);
+
+        // Also try full screen logic if entering
+        if (isVR) {
+            // Try to hide address bar on iOS
+            window.scrollTo(0, 1);
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed'; // Prevents bounce
+            document.body.style.width = '100%';
+            document.body.style.height = '100%';
+        } else {
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.height = '';
+        }
     }
 
     dispose() {
