@@ -7,7 +7,9 @@
 const hostname = window.location.hostname;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.endsWith('.local');
 const isDev = import.meta.env?.DEV || isLocal;
-export const API_BASE = isDev ? '' : 'https://api.neardev.my.id';
+
+// Aligned local development with production API as requested
+export const API_BASE = 'https://api.neardev.my.id';
 
 export const CONFIG = {
     // Camera FOV Settings
