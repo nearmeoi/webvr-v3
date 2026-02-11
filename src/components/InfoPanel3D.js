@@ -47,7 +47,7 @@ export class InfoPanel3D {
     }
 
     createCloseButton() {
-        const size = 0.08;
+        const size = 0.05;
         const closeGeo = new THREE.CircleGeometry(size, 32);
         const closeMat = new THREE.MeshBasicMaterial({
             color: 0xef4444,
