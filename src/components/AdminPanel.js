@@ -13,6 +13,7 @@ export class AdminPanel {
         this.filteredScenes = this.availableScenes;
         this.useCustomPath = false;
         this.undoStack = [];
+        this.clipboard = null; // For Ctrl+C/V hotspot copy
 
         // Preset colors
         this.colorPresets = [
@@ -317,6 +318,43 @@ export class AdminPanel {
             this.markDirty();
         }));
 
+        // Label Wrap Toggle
+        const wrapRow = document.createElement('div');
+        Object.assign(wrapRow.style, {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginTop: '12px',
+            marginBottom: '4px'
+        });
+        const wrapCheckbox = document.createElement('input');
+        wrapCheckbox.type = 'checkbox';
+        wrapCheckbox.checked = hotspot.labelWrap || false;
+        wrapCheckbox.id = 'label-wrap-toggle';
+        Object.assign(wrapCheckbox.style, {
+            width: '16px',
+            height: '16px',
+            cursor: 'pointer',
+            accentColor: '#10b981'
+        });
+        wrapCheckbox.onchange = (e) => {
+            hotspot.labelWrap = e.target.checked;
+            this.viewer.refreshHotspot?.(hotspot);
+            this.markDirty();
+        };
+        const wrapLabel = document.createElement('label');
+        wrapLabel.textContent = 'Wrap Long Label';
+        wrapLabel.htmlFor = 'label-wrap-toggle';
+        Object.assign(wrapLabel.style, {
+            fontSize: '12px',
+            color: '#4b5563',
+            cursor: 'pointer',
+            fontWeight: '500'
+        });
+        wrapRow.appendChild(wrapCheckbox);
+        wrapRow.appendChild(wrapLabel);
+        this.form.appendChild(wrapRow);
+
         // Color
         this.form.appendChild(this.createLabel('Color'));
         this.form.appendChild(this.createColorPicker(hotspot));
@@ -355,80 +393,31 @@ export class AdminPanel {
         iconPreviewWrapper.appendChild(iconPreview);
         this.form.appendChild(iconPreviewWrapper);
 
-        if (hotspot.type === 'info') {
-            // Title
-            this.form.appendChild(this.createLabel('Title'));
-            this.form.appendChild(this.createInput(hotspot.title || hotspot.label, (val) => {
-                hotspot.title = val;
-                this.markDirty();
-            }));
-
-            // Description
-            this.form.appendChild(this.createLabel('Description (Use [PAGE] to split pages)'));
-            const descArea = document.createElement('textarea');
-            descArea.value = hotspot.description || '';
-            Object.assign(descArea.style, {
-                width: '100%',
-                padding: '10px 12px',
-                background: '#ffffff',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                color: '#111827',
-                fontSize: '13px',
-                boxSizing: 'border-box',
-                outline: 'none',
-                fontFamily: "'Roboto', sans-serif",
-                minHeight: '80px',
-                resize: 'vertical'
+        if (hotspot.type === 'info' || hotspot.type === 'photo') {
+            const editBtn = this.createButton('Edit Content & Style', '#4f46e5', () => {
+                this.openInfoCustomizer(hotspot);
             });
-            descArea.oninput = (e) => {
-                hotspot.description = e.target.value;
-                this.markDirty();
-            };
-            this.form.appendChild(descArea);
+            editBtn.style.width = '100%';
+            editBtn.style.marginTop = '16px';
+            editBtn.style.padding = '12px';
+            editBtn.style.background = '#4f46e5';
+            editBtn.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.2)';
+            editBtn.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    Edit Content & Style
+                </div>
+            `;
+            this.form.appendChild(editBtn);
 
-            // CUSTOMIZATION FIELDS
-            this.form.appendChild(this.createLabel('Panel Width'));
-            this.form.appendChild(this.createSlider(hotspot.infoWidth || 1.0, 0.5, 3.0, 0.1, (val) => {
-                hotspot.infoWidth = val;
-                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
-                this.markDirty();
-            }));
-
-            this.form.appendChild(this.createLabel('Panel Height'));
-            this.form.appendChild(this.createSlider(hotspot.infoHeight || 0.8, 0.5, 2.5, 0.1, (val) => {
-                hotspot.infoHeight = val;
-                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
-                this.markDirty();
-            }));
-
-            this.form.appendChild(this.createLabel('Background Color'));
-            this.form.appendChild(this.createColorPicker(hotspot.infoColor || '#1e293b', (val) => {
-                hotspot.infoColor = val;
-                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
-                this.markDirty();
-            }));
-
-            this.form.appendChild(this.createLabel('Opacity'));
-            this.form.appendChild(this.createSlider(hotspot.infoOpacity !== undefined ? hotspot.infoOpacity : 0.95, 0, 1, 0.05, (val) => {
-                hotspot.infoOpacity = val;
-                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
-                this.markDirty();
-            }));
-
-        } else if (hotspot.type === 'photo') {
-            // Photo URL
-            this.form.appendChild(this.createLabel('Photo URL'));
-            this.form.appendChild(this.createInput(hotspot.target || '', (val) => {
-                hotspot.target = val;
-                this.markDirty();
-            }));
-            // Caption
-            this.form.appendChild(this.createLabel('Caption'));
-            this.form.appendChild(this.createInput(hotspot.description || '', (val) => {
-                hotspot.description = val;
-                this.markDirty();
-            }));
+            // Backwards compatibility/Quick links
+            if (hotspot.type === 'photo') {
+                this.form.appendChild(this.createLabel('Photo URL (Quick Edit)'));
+                this.form.appendChild(this.createInput(hotspot.target || '', (val) => {
+                    hotspot.target = val;
+                    this.markDirty();
+                }));
+            }
         } else {
             // Navigation Target
             const targetHeader = document.createElement('div');
@@ -753,6 +742,36 @@ export class AdminPanel {
                 e.preventDefault();
                 this.undo();
             }
+            if (e.ctrlKey && e.key.toLowerCase() === 'c' && this.isAdminMode && this.selectedHotspot) {
+                e.preventDefault();
+                // Deep clone all hotspot settings
+                this.clipboard = JSON.parse(JSON.stringify(this.selectedHotspot));
+                this.showToast('Hotspot copied!');
+            }
+            if (e.ctrlKey && e.key.toLowerCase() === 'v' && this.isAdminMode && this.clipboard) {
+                e.preventDefault();
+                // Paste at a slight offset from the original position
+                const newYaw = (this.clipboard.yaw || 0) + 10;
+                const newPitch = this.clipboard.pitch || 0;
+
+                // Add hotspot at offset position
+                this.viewer.addHotspot(newYaw, newPitch);
+
+                // Apply clipboard settings to the newly created hotspot
+                const newMesh = this.viewer.currentHotspots[this.viewer.currentHotspots.length - 1];
+                if (newMesh) {
+                    const data = newMesh.userData.hotspotData;
+                    // Copy all settings except position
+                    const { yaw: _y, pitch: _p, ...settings } = this.clipboard;
+                    Object.assign(data, settings);
+                    data.yaw = newYaw;
+                    data.pitch = newPitch;
+                    this.viewer.refreshHotspot?.(data);
+                    this.selectHotspot(data);
+                    this.markDirty();
+                }
+                this.showToast('Hotspot pasted!');
+            }
             if (e.key === 'Escape' && this.isAdminMode) {
                 this.selectHotspot(null);
             }
@@ -803,49 +822,291 @@ export class AdminPanel {
         this.renderForm(hotspot);
     }
 
+    openInfoCustomizer(hotspot) {
+        if (this.modalOverlay) this.modalOverlay.remove();
+
+        this.modalOverlay = document.createElement('div');
+        Object.assign(this.modalOverlay.style, {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'blur(8px)',
+            zIndex: '20000',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+        });
+
+        const modal = document.createElement('div');
+        Object.assign(modal.style, {
+            width: '100%',
+            maxWidth: '500px',
+            maxHeight: '90vh',
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            animation: 'modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        });
+
+        // Add Animation
+        const animStyle = document.createElement('style');
+        animStyle.textContent = `
+            @keyframes modalSlideUp {
+                from { transform: translateY(20px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(animStyle);
+
+        // Header
+        const header = document.createElement('div');
+        Object.assign(header.style, {
+            padding: '20px 24px',
+            borderBottom: '1px solid #f3f4f6',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+        });
+        header.innerHTML = `
+            <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #111827;">
+                ${hotspot.type === 'info' ? 'Edit Info Panel' : 'Edit Photo Overlay'}
+            </h3>
+        `;
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '×';
+        Object.assign(closeBtn.style, {
+            background: 'transparent',
+            border: 'none',
+            fontSize: '24px',
+            cursor: 'pointer',
+            color: '#9ca3af',
+            lineHeight: '1'
+        });
+        closeBtn.onclick = () => this.modalOverlay.remove();
+        header.appendChild(closeBtn);
+        modal.appendChild(header);
+
+        // Content
+        const scrollArea = document.createElement('div');
+        Object.assign(scrollArea.style, {
+            padding: '24px',
+            overflowY: 'auto',
+            flex: '1'
+        });
+        modal.appendChild(scrollArea);
+
+        const renderField = (label, element) => {
+            const wrap = document.createElement('div');
+            wrap.style.marginBottom = '20px';
+            wrap.appendChild(this.createLabel(label));
+            wrap.appendChild(element);
+            scrollArea.appendChild(wrap);
+        };
+
+        // Title
+        const titleInput = this.createInput(hotspot.title || hotspot.label, (val) => {
+            hotspot.title = val;
+            this.markDirty();
+            if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
+        });
+        renderField('Title / Heading', titleInput);
+
+        // Description / Pagination
+        const descArea = document.createElement('textarea');
+        descArea.value = hotspot.description || '';
+        Object.assign(descArea.style, {
+            width: '100%',
+            padding: '12px',
+            border: '1px solid #d1d5db',
+            borderRadius: '8px',
+            fontSize: '14px',
+            minHeight: '120px',
+            outline: 'none',
+            fontFamily: 'inherit',
+            resize: 'vertical'
+        });
+        descArea.oninput = (e) => {
+            hotspot.description = e.target.value;
+            this.markDirty();
+            if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
+        };
+        renderField('Description (Use [PAGE] to split pages)', descArea);
+
+        if (hotspot.type === 'info') {
+            // Style Grid
+            const grid = document.createElement('div');
+            grid.style.display = 'grid';
+            grid.style.gridTemplateColumns = '1fr 1fr';
+            grid.style.gap = '20px';
+            scrollArea.appendChild(grid);
+
+            const addGridCol = (label, element) => {
+                const wrap = document.createElement('div');
+                wrap.appendChild(this.createLabel(label));
+                wrap.appendChild(element);
+                grid.appendChild(wrap);
+            };
+
+            addGridCol('Width', this.createSlider(hotspot.infoWidth || 1.0, 0.5, 3.0, 0.1, (val) => {
+                hotspot.infoWidth = parseFloat(val);
+                this.markDirty();
+                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
+            }));
+
+            addGridCol('Height', this.createSlider(hotspot.infoHeight || 0.8, 0.5, 2.5, 0.1, (val) => {
+                hotspot.infoHeight = parseFloat(val);
+                this.markDirty();
+                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
+            }));
+
+            addGridCol('Bg Opacity', this.createSlider(hotspot.infoOpacity !== undefined ? hotspot.infoOpacity : 0.95, 0.1, 1, 0.05, (val) => {
+                hotspot.infoOpacity = parseFloat(val);
+                this.markDirty();
+                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
+            }));
+
+            // Color selection
+            const colorWrap = document.createElement('div');
+            colorWrap.style.marginTop = '20px';
+            colorWrap.appendChild(this.createLabel('Background Color'));
+            colorWrap.appendChild(this.createColorPickerModal(hotspot, (val) => {
+                hotspot.infoColor = val;
+                this.markDirty();
+                if (this.viewer.infoPanel3D?.group.visible) this.viewer.infoPanel3D.show(hotspot);
+            }));
+            scrollArea.appendChild(colorWrap);
+        } else if (hotspot.type === 'photo') {
+            const photoInput = this.createInput(hotspot.target || '', (val) => {
+                hotspot.target = val;
+                this.markDirty();
+            });
+            renderField('Photo URL / Path', photoInput);
+        }
+
+        // Footer
+        const footer = document.createElement('div');
+        Object.assign(footer.style, {
+            padding: '20px 24px',
+            borderTop: '1px solid #f3f4f6',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            background: '#f9fafb'
+        });
+        const doneBtn = this.createButton('Done', '#10b981', () => this.modalOverlay.remove());
+        doneBtn.style.padding = '10px 30px';
+        footer.appendChild(doneBtn);
+        modal.appendChild(footer);
+
+        this.modalOverlay.appendChild(modal);
+        document.body.appendChild(this.modalOverlay);
+
+        this.modalOverlay.onclick = (e) => {
+            if (e.target === this.modalOverlay) this.modalOverlay.remove();
+        };
+    }
+
+    createColorPickerModal(hotspot, onUpdate) {
+        const wrapper = document.createElement('div');
+        Object.assign(wrapper.style, {
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px'
+        });
+
+        const activeColor = hotspot.infoColor || '#1e293b';
+
+        this.colorPresets.concat(['#1e293b', '#000000', '#ffffff']).forEach(color => {
+            const swatch = document.createElement('button');
+            Object.assign(swatch.style, {
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: color,
+                border: activeColor.toLowerCase() === color.toLowerCase() ? '2px solid #3b82f6' : '1px solid rgba(0,0,0,0.1)',
+                cursor: 'pointer',
+                transition: 'all 0.1s'
+            });
+            swatch.onclick = () => {
+                onUpdate(color);
+                this.openInfoCustomizer(hotspot); // Re-render modal to show selection
+            };
+            wrapper.appendChild(swatch);
+        });
+
+        const custom = document.createElement('input');
+        custom.type = 'color';
+        custom.value = activeColor;
+        Object.assign(custom.style, {
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            border: '1px solid rgba(0,0,0,0.1)',
+            padding: '0',
+            cursor: 'pointer'
+        });
+        custom.oninput = (e) => onUpdate(e.target.value);
+        wrapper.appendChild(custom);
+
+        return wrapper;
+    }
+
     markDirty() {
         this.unsavedChanges = true;
-        this.saveBtn.textContent = 'Save *';
-        this.saveBtn.style.background = '#f59e0b';
+        this.saveBtn.style.background = '#10b981';
+        this.saveBtn.style.boxShadow = '0 0 15px rgba(16, 185, 129, 0.4)';
     }
 
     async saveToDisk() {
-        const payload = this.viewer.getCurrentSceneHotspots();
-        if (!payload) {
-            this.showToast('No scene to save');
+        if (!this.unsavedChanges) {
+            this.showToast('No changes to save');
             return;
         }
-        console.log('Saving scene data:', payload);
+
+        const payload = this.viewer.getCurrentSceneHotspots();
+        if (!payload) {
+            this.showToast('No scene data to save');
+            return;
+        }
 
         try {
-            this.saveBtn.textContent = 'Saving...';
             this.saveBtn.disabled = true;
+            this.saveBtn.textContent = 'Saving...';
 
-            const res = await fetch(`${API_BASE}/api/save-hotspots`, {
+            const response = await fetch(`${API_BASE}/api/save-hotspots`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload, null, 2)
+                body: JSON.stringify(payload)
             });
 
-            if (res.ok) {
+            if (response.ok) {
                 this.unsavedChanges = false;
-                this.saveBtn.textContent = 'Saved';
-                this.saveBtn.style.background = '#10b981';
-                this.showToast('Saved successfully');
+                this.saveBtn.style.boxShadow = 'none';
+                this.saveBtn.textContent = 'Saved!';
+                this.showToast('Changes saved to disk');
 
                 setTimeout(() => {
                     this.saveBtn.textContent = 'Save';
-                }, 1500);
+                    this.saveBtn.disabled = false;
+                }, 2000);
             } else {
-                throw new Error('Failed: ' + res.status);
+                throw new Error('Save failed');
             }
         } catch (err) {
-            console.error('Save error:', err);
-            this.saveBtn.textContent = 'Error';
+            console.error(err);
+            this.saveBtn.textContent = 'Error!';
             this.saveBtn.style.background = '#ef4444';
-            this.showToast('Save failed');
-        } finally {
-            this.saveBtn.disabled = false;
+            setTimeout(() => {
+                this.saveBtn.textContent = 'Save';
+                this.saveBtn.disabled = false;
+                this.saveBtn.style.background = '#10b981';
+            }, 3000);
         }
     }
 

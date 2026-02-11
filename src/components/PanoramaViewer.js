@@ -575,6 +575,9 @@ export class PanoramaViewer {
         // Ensure panorama is visible
         this.group.visible = true;
 
+        // Sync current hotspots to data before leaving this scene
+        this.syncCurrentHotspotsToData();
+
         // target can be an ID (key in SCENE_MAP) or a direct path
         const sceneData = SCENE_MAP[target];
 
@@ -594,6 +597,14 @@ export class PanoramaViewer {
             this.loadTexture(target);
         } else {
             console.warn(`Target scene invalid or not found: ${target}`);
+        }
+    }
+
+    syncCurrentHotspotsToData() {
+        const data = this.getCurrentSceneHotspots();
+        if (data && data.sceneId && data.hotspots.length > 0) {
+            this.hotspotsData[data.sceneId] = data.hotspots;
+            console.log(`[Sync] Saved ${data.hotspots.length} hotspots for: ${data.sceneId}`);
         }
     }
 
@@ -678,7 +689,8 @@ export class PanoramaViewer {
                 textSize: data.textSize !== undefined ? data.textSize : 1.0,
                 color: data.color || null,
                 icon_url: data.icon_url || null,
-                labelOffset: data.labelOffset !== undefined ? data.labelOffset : 0
+                labelOffset: data.labelOffset !== undefined ? data.labelOffset : 0,
+                labelWrap: data.labelWrap || false
             };
 
             // Only add extra fields if they are relevant to the type to save space
@@ -782,38 +794,63 @@ export class PanoramaViewer {
 
 
 
-    createLabel(text, scale = 1.0) {
+    createLabel(text, scale = 1.0, wrapLabel = false) {
         const canvas = document.createElement('canvas');
         const baseFontSize = 42;
         const fontSize = baseFontSize * scale;
         const padding = 24 * scale;
+        const lineHeight = fontSize * 1.3;
 
         const ctx = canvas.getContext('2d');
         ctx.font = `500 ${fontSize}px 'Roboto', 'Segoe UI', sans-serif`;
-        const metrics = ctx.measureText(text);
-        const textWidth = metrics.width;
 
-        canvas.width = textWidth + padding * 2;
-        canvas.height = fontSize + padding * 1.5;
+        let lines = [text];
+        let maxLineWidth;
+
+        if (wrapLabel && text.length > 12) {
+            // Wrap text at max ~200px per line (scaled)
+            const maxWidth = 280 * scale;
+            const words = text.split(' ');
+            lines = [];
+            let currentLine = '';
+
+            for (const word of words) {
+                const testLine = currentLine ? currentLine + ' ' + word : word;
+                if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            if (currentLine) lines.push(currentLine);
+
+            maxLineWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
+        } else {
+            maxLineWidth = ctx.measureText(text).width;
+        }
+
+        canvas.width = maxLineWidth + padding * 2;
+        canvas.height = lineHeight * lines.length + padding * 1.5;
 
         const w = canvas.width;
         const h = canvas.height;
-        const r = h / 2; // Pill shape
+        const r = lines.length > 1 ? 20 * scale : h / 2; // Rounded rect for multi-line, pill for single
 
         const ctx2 = canvas.getContext('2d');
 
-        // Background pill with blur effect simulation
+        // Background
         ctx2.fillStyle = 'rgba(0, 0, 0, 0.75)';
         ctx2.beginPath();
         ctx2.roundRect(0, 0, w, h, r);
         ctx2.fill();
 
-        // Subtle border
+        // Border
         ctx2.strokeStyle = 'rgba(255, 255, 255, 0.15)';
         ctx2.lineWidth = 1.5;
         ctx2.stroke();
 
-        // Text with slight shadow
+        // Text
         ctx2.shadowColor = 'rgba(0, 0, 0, 0.5)';
         ctx2.shadowBlur = 4;
         ctx2.shadowOffsetY = 1;
@@ -821,7 +858,15 @@ export class PanoramaViewer {
         ctx2.fillStyle = '#ffffff';
         ctx2.textAlign = 'center';
         ctx2.textBaseline = 'middle';
-        ctx2.fillText(text, w / 2, h / 2);
+
+        if (lines.length === 1) {
+            ctx2.fillText(text, w / 2, h / 2);
+        } else {
+            const startY = (h - lineHeight * lines.length) / 2 + lineHeight / 2;
+            lines.forEach((line, i) => {
+                ctx2.fillText(line, w / 2, startY + i * lineHeight);
+            });
+        }
 
         const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
@@ -1280,7 +1325,8 @@ export class PanoramaViewer {
         if (data.label) {
             const textSize = data.textSize || 1.0;
             const labelOffset = data.labelOffset !== undefined ? data.labelOffset : 0;
-            const labelMesh = this.createLabel(data.label, textSize);
+            const wrapLabel = data.labelWrap || false;
+            const labelMesh = this.createLabel(data.label, textSize, wrapLabel);
 
             // Calculate label position (slightly below the hotspot)
             const labelRadius = radius;
