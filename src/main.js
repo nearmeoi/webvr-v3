@@ -843,11 +843,31 @@ class App {
             // This must be done on user gesture (click), just like audio resume
             try {
                 const gyroGranted = await requestGyroscopePermission();
-                if (gyroGranted && isMobile()) {
-                    this.isGyroEnabled = true;
-                    console.log('Gyroscope enabled for Magic Window mode');
-                } else {
-                    console.log('Desktop detected or gyro not available, using OrbitControls');
+                if (gyroGranted) {
+                    // Test if gyroscope actually works by waiting for a real event
+                    const hasRealGyro = await new Promise((resolve) => {
+                        const timeout = setTimeout(() => {
+                            window.removeEventListener('deviceorientation', handler);
+                            resolve(false);
+                        }, 1000); // Wait 1 second for gyro event
+
+                        const handler = (e) => {
+                            // Real gyro gives non-null alpha/beta/gamma
+                            if (e.alpha !== null || e.beta !== null || e.gamma !== null) {
+                                clearTimeout(timeout);
+                                window.removeEventListener('deviceorientation', handler);
+                                resolve(true);
+                            }
+                        };
+                        window.addEventListener('deviceorientation', handler);
+                    });
+
+                    if (hasRealGyro) {
+                        this.isGyroEnabled = true;
+                        console.log('Gyroscope enabled for Magic Window mode');
+                    } else {
+                        console.log('No real gyroscope detected, using OrbitControls');
+                    }
                 }
             } catch (e) {
                 console.warn('Gyroscope request failed:', e);
