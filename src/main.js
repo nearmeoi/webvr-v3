@@ -583,6 +583,57 @@ class App {
             window.adminPanel = this.adminPanel; // Global access for debug/hook
         });
 
+        // Triple-tap gesture to toggle Admin Panel on mobile
+        let tapCount = 0;
+        let tapTimer = null;
+        window.addEventListener('touchend', (e) => {
+            // Ignore if tapping on the admin panel itself
+            if (e.target.closest('#admin-panel')) return;
+            tapCount++;
+            if (tapCount === 3) {
+                tapCount = 0;
+                clearTimeout(tapTimer);
+                this.adminPanel?.toggle();
+            } else {
+                clearTimeout(tapTimer);
+                tapTimer = setTimeout(() => { tapCount = 0; }, 500);
+            }
+        });
+
+        // Double-tap gesture to add hotspot on mobile (like right-click)
+        let lastTapTime = 0;
+        let lastTapX = 0;
+        let lastTapY = 0;
+        window.addEventListener('touchend', (e) => {
+            if (!this.panoramaViewer?.isAdminMode) return;
+            if (e.target.closest('#admin-panel')) return;
+
+            const now = Date.now();
+            const touch = e.changedTouches[0];
+            const dx = touch.clientX - lastTapX;
+            const dy = touch.clientY - lastTapY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (now - lastTapTime < 300 && dist < 30) {
+                // Double-tap detected — place hotspot
+                e.preventDefault();
+                const rect = this.renderer.domElement.getBoundingClientRect();
+                const mouse = new THREE.Vector2();
+                mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+
+                const raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(mouse, this.camera);
+                const intersects = raycaster.intersectObject(this.panoramaViewer.sphere);
+                this.panoramaViewer.handleAdminRightClick(intersects);
+                lastTapTime = 0; // Reset to avoid triple-fire
+            } else {
+                lastTapTime = now;
+                lastTapX = touch.clientX;
+                lastTapY = touch.clientY;
+            }
+        });
+
         // --- Admin Drag-and-Drop Handler ---
         window.addEventListener('mousedown', (e) => {
             if (!this.panoramaViewer?.isAdminMode) return;
