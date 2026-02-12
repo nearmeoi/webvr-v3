@@ -682,7 +682,7 @@ export class PanoramaViewer {
                 yaw: parseFloat(yaw.toFixed(2)),
                 pitch: parseFloat(pitch.toFixed(2)),
                 target: data.target || '',
-                target_name: data.label || data.target_name || '',
+                target_name: (typeof data.label === 'string') ? data.label : (data.target_name || ''),
                 type: data.type || 'arrow',
                 label: data.label || '',
                 size: data.size !== undefined ? data.size : 3,
@@ -950,10 +950,44 @@ export class PanoramaViewer {
         if (!this.isAdminMode) return false;
 
         if (intersects.length > 0) {
-            const hit = intersects[0];
-            if (hit.object.userData.hotspotData) {
+            // Iterate through hits to find the first valid hotspot
+            const hit = intersects.find(h => h.object.userData.hotspotData);
+
+            if (hit) {
+                const object = hit.object;
                 this.isDraggingHotspot = true;
-                this.draggedMesh = hit.object;
+                this.draggedMesh = object;
+
+                // Record initial state for UNDO
+                const data = this.draggedMesh.userData.hotspotData;
+                this.dragInitialState = {
+                    data: data,
+                    yaw: data.yaw,
+                    pitch: data.pitch
+                };
+
+                // Select it too
+                if (window.adminPanel) {
+                    window.adminPanel.selectHotspot(data);
+                }
+
+                return true; // Capture event
+            }
+        }
+        return false;
+    }
+
+    handleAdminMouseDown_BROKEN(intersects) {
+        if (!this.isAdminMode) return false;
+
+        if (intersects.length > 0) {
+            // Iterate through hits to find the first valid hotspot
+            const hit = intersects.find(h => h.object.userData.hotspotData);
+
+            if (hit) {
+                const object = hit.object;
+                this.isDraggingHotspot = true;
+                this.draggedMesh = object;
 
                 // Record initial state for UNDO
                 const data = this.draggedMesh.userData.hotspotData;

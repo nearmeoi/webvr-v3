@@ -38,23 +38,24 @@ export class AdminPanel {
         this.container.id = 'admin-panel';
         Object.assign(this.container.style, {
             position: 'absolute',
-            top: '20px',
-            right: '20px',
-            width: '320px',
-            maxHeight: 'calc(100vh - 40px)',
+            top: '10px',
+            right: '10px',
+            width: '260px',
+            maxHeight: 'calc(100vh - 20px)',
             overflowY: 'auto',
-            overflowX: 'hidden', // Prevent horizontal scroll
+            overflowX: 'hidden',
             background: 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(20px)',
             border: '1px solid rgba(0, 0, 0, 0.1)',
-            borderRadius: '12px',
+            borderRadius: '10px',
             padding: '0',
             color: '#1f2937',
             fontFamily: "'Roboto', 'Segoe UI', system-ui, sans-serif",
             display: 'none',
             zIndex: '10000',
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            fontSize: '12px'
         });
 
         // Add a style tag for global box-sizing within this container
@@ -66,6 +67,32 @@ export class AdminPanel {
             #admin-panel ::-webkit-scrollbar-track { background: transparent; }
             #admin-panel ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
             #admin-panel ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+            @media (max-width: 640px) {
+                #admin-panel {
+                    position: fixed !important;
+                    top: auto !important;
+                    bottom: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    width: 100% !important;
+                    max-height: 55vh !important;
+                    border-radius: 16px 16px 0 0 !important;
+                    box-shadow: 0 -10px 30px rgba(0,0,0,0.15) !important;
+                    font-size: 13px !important;
+                }
+                #admin-panel label {
+                    font-size: 10px !important;
+                }
+                #admin-panel input, #admin-panel select, #admin-panel textarea {
+                    font-size: 13px !important;
+                    padding: 8px 10px !important;
+                }
+                #admin-panel button {
+                    font-size: 12px !important;
+                    padding: 8px 12px !important;
+                }
+            }
         `;
         document.head.appendChild(style);
 
@@ -79,11 +106,11 @@ export class AdminPanel {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: '16px 20px',
+            padding: '10px 14px',
             borderBottom: '1px solid rgba(0,0,0,0.06)'
         });
         header.innerHTML = `
-            <span style="font-weight: 600; font-size: 15px; color: #111827;">Hotspot Editor</span>
+            <span style="font-weight: 600; font-size: 13px; color: #111827;">Hotspot Editor</span>
             <button id="admin-close-btn" style="
                 background: transparent;
                 border: none;
@@ -112,16 +139,16 @@ export class AdminPanel {
         }, 0);
 
         const content = document.createElement('div');
-        content.style.padding = '20px';
+        content.style.padding = '12px';
         this.container.appendChild(content);
 
         this.sceneInfo = document.createElement('div');
         Object.assign(this.sceneInfo.style, {
             background: '#f9fafb',
-            borderRadius: '8px',
-            padding: '12px 16px',
-            marginBottom: '20px',
-            fontSize: '13px',
+            borderRadius: '6px',
+            padding: '8px 12px',
+            marginBottom: '12px',
+            fontSize: '11px',
             border: '1px solid #e5e7eb',
             color: '#374151'
         });
@@ -132,7 +159,7 @@ export class AdminPanel {
 
         const footer = document.createElement('div');
         Object.assign(footer.style, {
-            padding: '16px 20px',
+            padding: '10px 14px',
             borderTop: '1px solid rgba(0,0,0,0.06)',
             display: 'flex',
             gap: '10px',
@@ -261,6 +288,7 @@ export class AdminPanel {
         this.form.appendChild(this.createLabel('Label'));
         this.form.appendChild(this.createInput(hotspot.label, (val) => {
             hotspot.label = val;
+            hotspot.target_name = val; // Sync legacy field to prevent fallback issues
             this.viewer.refreshHotspot?.(hotspot);
             this.markDirty();
         }));
