@@ -762,6 +762,10 @@ export class AdminPanel {
 
     setupKeyboardShortcuts() {
         window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                this.saveToDisk();
+            }
             if (e.ctrlKey && e.key.toLowerCase() === 'e') {
                 e.preventDefault();
                 this.toggle();
