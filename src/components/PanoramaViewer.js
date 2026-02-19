@@ -575,6 +575,10 @@ export class PanoramaViewer {
         // Ensure panorama is visible
         this.group.visible = true;
 
+        // Close any open info panels before navigating
+        if (this.infoOverlay) this.infoOverlay.hide();
+        if (this.infoPanel3D) this.infoPanel3D.hide();
+
         // Sync current hotspots to data before leaving this scene
         this.syncCurrentHotspotsToData();
 
@@ -1171,6 +1175,7 @@ export class PanoramaViewer {
             info: '#0ea5e9',
             plus: '#10b981',
             home: '#8b5cf6',
+            back: '#64748b',
             photo: '#f59e0b',
             video: '#ef4444'
         };
@@ -1235,6 +1240,25 @@ export class PanoramaViewer {
             // Door
             ctx.fillStyle = this.hexToRgba(color, 0.8);
             ctx.fillRect(cx - 15, cy + 15, 30, 35);
+        } else if (type === 'back') {
+            drawBase(color, glowColor);
+            // Curved back arrow icon (↩ style)
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 14;
+            ctx.beginPath();
+            // Curved arc from right to top-left
+            ctx.arc(cx + 10, cy - 10, 45, 0, -Math.PI * 0.75, true);
+            ctx.stroke();
+            // Arrowhead at the end of the curve
+            const tipX = cx + 10 + 45 * Math.cos(-Math.PI * 0.75);
+            const tipY = cy - 10 + 45 * Math.sin(-Math.PI * 0.75);
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(tipX - 20, tipY - 8);
+            ctx.lineTo(tipX + 2, tipY - 25);
+            ctx.lineTo(tipX + 5, tipY + 12);
+            ctx.closePath();
+            ctx.fill();
         } else if (type === 'photo') {
             drawBase(color, glowColor);
             // Camera icon
