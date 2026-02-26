@@ -1,5 +1,5 @@
 {
-    "editor.fontFamily": "'Fira Code', 'Roboto', monospace",
+    "editor.fontFamily": "'FiraCode', 'RobotoMono Nerd Font', monospace",
     "terminal.integrated.fontFamily": "'Fira Code', 'Roboto', monospace",
     "debug.console.fontFamily": "'Fira Code', 'Roboto', monospace",
     "markdown.preview.fontFamily": "'Fira Code', 'Roboto', monospace",
