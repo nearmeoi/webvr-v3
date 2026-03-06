@@ -22,8 +22,10 @@ export class GazeController {
             depthWrite: false
         });
         this.mesh = new THREE.Mesh(geometry, material);
-        // Position will be updated in update() loop
-        this.scene.add(this.mesh);
+        // Attach to camera instead of scene for proper stereo rendering
+        this.camera.add(this.mesh);
+        // Set fixed local position relative to camera
+        this.mesh.position.set(0, 0, -this.reticleDistance);
         this.mesh.renderOrder = 10001; // Higher than hotspots (9999)
 
         // Progress indicator (Inner circle filling up)
@@ -76,9 +78,8 @@ export class GazeController {
             this.camera.getWorldDirection(direction);
         }
 
-        // Always update reticle position
-        this.mesh.position.copy(origin).add(direction.multiplyScalar(this.reticleDistance));
-        this.mesh.lookAt(origin); // Orient towards camera
+        // The reticle position and orientation is automatically handled by THREE.js 
+        // because it is now a child of the camera.
 
         if (this.triggerLockTime > 0) {
             this.triggerLockTime -= delta;
@@ -200,8 +201,8 @@ export class GazeController {
     }
 
     dispose() {
-        if (this.mesh && this.scene) {
-            this.scene.remove(this.mesh);
+        if (this.mesh && this.camera) {
+            this.camera.remove(this.mesh);
         }
         if (this.mesh) {
             this.mesh.geometry.dispose();
