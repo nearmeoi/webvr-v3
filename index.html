@@ -1,52 +1,145 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="light" lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+        name="viewport" />
+
     <!-- Web App Meta Tags -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Museum Makassar VR">
     <meta name="application-name" content="Museum Makassar VR">
-    <meta name="theme-color" content="#111111">
-
+    <meta name="theme-color" content="#221610">
     <link rel="icon" type="image/svg+xml"
         href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
     <link rel="apple-touch-icon"
         href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
-    <!-- Google Fonts - Roboto for 3D UI -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <title>Virtual Tour</title>
 
+    <title>Museum Kota Makassar - Virtual Tour</title>
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#c1a88c",
+                        "primary-dark": "#a3886b",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+            min-height: max(884px, 100dvh);
+            overflow: hidden;
+            /* Prevent scrolling before scene loads */
+        }
+
+        .lite-glass {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+        }
+
+        .dark .lite-glass {
+            background-color: rgba(34, 22, 16, 0.85);
+            backdrop-filter: blur(8px);
+        }
+
+        /* Required to fade out landing screen properly */
+        #landing-screen {
+            transition: opacity 0.5s ease-out;
+        }
+    </style>
 </head>
 
-<body>
-    <div id="landing-screen">
-        <!-- Background Image with Blur -->
-        <div class="landing-bg"></div>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
 
-        <div class="landing-content">
-            <h1 class="landing-title">
-                MUSEUM
-            </h1>
-            <p class="landing-subtitle">
-                KOTA MAKASSAR VIRTUAL TOUR
-            </p>
+    <!-- Wrapper acts as the landing screen which main.js expects -->
+    <div id="landing-screen" class="relative flex h-screen w-full flex-col overflow-hidden z-[9999]">
+        <!-- Main Content Area -->
+        <main class="flex-1 relative flex flex-col items-center justify-center px-6 text-center">
 
-            <button id="enter-vr-btn">
-                START EXPERIENCE
-            </button>
-            <p class="landing-footer">
-                Headphones Recommended • Auto-Guided Tour
-            </p>
-        </div>
+            <!-- Hero Background -->
+            <div class="absolute inset-0 z-0">
+                <div
+                    class="absolute inset-0 bg-gradient-to-b from-transparent via-background-light/40 to-background-light dark:via-background-dark/40 dark:to-background-dark z-10">
+                </div>
+                <!-- Changed to bg.png -->
+                <img alt="Museum background" class="w-full h-full object-cover" src="bg.png" />
+            </div>
+
+            <!-- Content Card -->
+            <div
+                class="lite-glass p-6 md:p-8 rounded-xl shadow-sm z-20 max-w-md w-full border border-primary/20 mt-10 md:mt-0">
+                <h1 class="text-3xl md:text-4xl font-bold leading-tight mb-4">
+                    Museum Kota Makassar <br><span class="text-primary-dark dark:text-primary">Virtual Tour</span>
+                </h1>
+                <p class="text-slate-600 dark:text-slate-300 text-sm md:text-base mb-8 leading-relaxed">
+                    Explore the history and culture of Makassar through our immersive and interactive 360° virtual
+                    experience.
+                </p>
+                <div class="flex flex-col gap-3">
+
+                    <!-- Added ID here so the JS attach works -->
+                    <button id="enter-vr-btn"
+                        class="bg-primary hover:bg-primary-dark text-white font-bold py-4 px-8 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+                        <span>START EXPERIENCE</span>
+                        <span class="material-symbols-outlined">arrow_forward</span>
+                    </button>
+
+                    <button
+                        class="bg-primary/10 hover:bg-primary/20 text-primary-dark dark:text-primary font-semibold py-3 px-8 rounded-xl transition-all">
+                        Browse Collections
+                    </button>
+                    <button
+                        class="bg-primary/5 hover:bg-primary/10 text-primary-dark/80 dark:text-primary/80 font-semibold py-3 px-8 rounded-xl transition-all border border-primary/20">
+                        Visitor Guide
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Stats / Performance Badge -->
+            <div
+                class="mt-8 z-20 flex items-center gap-4 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                <div class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">bolt</span>
+                    <span>Lite Performance</span>
+                </div>
+                <div class="w-1 h-1 bg-primary rounded-full"></div>
+                <div class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">hd</span>
+                    <span>4K Visuals</span>
+                </div>
+            </div>
+        </main>
     </div>
 
+    <!-- Script to run the actual 3D App -->
     <script type="module" src="/src/main.js"></script>
 </body>
 
