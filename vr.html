@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Grand Gallery - Virtual Tour</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: "Public Sans", sans-serif
+        }
+
+        .panoramic-view {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url(https://lh3.googleusercontent.com/aida-public/AB6AXuD-vhiqTGxwUFQC18RabspE9TL4SAEqSXfAOmRuefypHMHUZKaXiP0haVGlKAlD3jbwh9lPp5rjcGK4oSsPjdRGz6NGSqOeDGwU_iG2za5XqSb37Pxap6Zy-a6idH_M9LTVrzG8Wr2havhETQX9S5-_GnNOpCoX-A0sl35cWECTVgMKaSHED3hKy_mitB5QO1OMr3gE7-28azbqHzVyt2nyaAEjGiia1H51goYgYwsTs6ZOXHqtcFK6Gj9sqXx5IgpoKRXHOrKuAss);
+            background-size: cover;
+            background-position: center
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24
+        }
+    </style>
+</head>
+
+<body
+    class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 overflow-hidden font-display">
+    <div class="relative h-screen w-full flex flex-col overflow-hidden">
+
+        <!-- Main Panoramic View -->
+        <main class="relative flex-1 panoramic-view w-full h-full"
+            data-alt="360 panoramic view of a classical museum hall with sculptures">
+            <!-- Virtual Hotspot and Info Panel Container -->
+            <div class="absolute inset-0 flex items-center justify-center">
+                <div class="relative group">
+                    <!-- Pulse Hotspot -->
+                    <div class="flex flex-col items-center gap-2 cursor-pointer group">
+                        <div class="relative flex items-center justify-center">
+                            <span
+                                class="absolute inline-flex h-12 w-12 rounded-full bg-primary opacity-75 animate-ping"></span>
+                            <div
+                                class="relative flex items-center justify-center size-8 bg-primary rounded-full border-2 border-white shadow-lg">
+                                <span class="material-symbols-outlined text-white text-sm">info</span>
+                            </div>
+                        </div>
+                        <div
+                            class="bg-background-dark/90 backdrop-blur-md px-3 py-1 rounded-full border border-primary/50">
+                            <span class="text-xs font-bold text-white uppercase tracking-widest">Ancient
+                                Artifacts</span>
+                        </div>
+                    </div>
+                    <!-- Information Panel (Always Visible for UI layout demo) -->
+                    <div class="absolute top-full mt-6 left-1/2 -translate-x-1/2 w-[320px] md:w-[400px] @container">
+                        <div
+                            class="bg-background-dark/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+                            <div class="h-24 w-full bg-cover bg-center"
+                                data-alt="Close up of ancient Greek marble sculptures"
+                                style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCf5STqSwczZgZScKLrLfbnDEyWZbiPtID49kajrOsSWgqebO3yFHHRDZGkyP3mWUSucVSl2p57EIr-Y2dBVCY6niCqdvWM-oYvTuT2DK1pvxROCxBw0R5wwb0BK_7UMBHOW7jO9V4DPpxoVXs5r3Sp3YEVivMXVcdnkPvOBi2vReF7gqPOmT_KQWr0fpx6aV7z73OhANaskgG3oSkDKOP6Q3NVCRs7FG-Ipyv8V3V2Uwekup5yo0IzgaA46rDWXjElBTSb_xn5Um8')">
+                            </div>
+                            <div class="p-5">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h3 class="text-white text-lg font-bold">Ancient Artifacts</h3>
+                                    <span
+                                        class="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold uppercase tracking-tighter">Audio
+                                        Guide</span>
+                                </div>
+                                <p class="text-slate-300 text-sm leading-relaxed mb-6">
+                                    Explore the wonders of the ancient world through these meticulously preserved
+                                    relics, spanning from the early dynasties to the Hellenistic period.
+                                </p>
+                                <!-- Audio Controls -->
+                                <div class="flex items-center justify-between bg-white/5 rounded-lg p-2">
+                                    <div class="flex gap-1">
+                                        <button class="p-2 text-white hover:text-primary transition-colors">
+                                            <span class="material-symbols-outlined">play_arrow</span>
+                                        </button>
+                                        <button class="p-2 text-white hover:text-primary transition-colors">
+                                            <span class="material-symbols-outlined">pause</span>
+                                        </button>
+                                        <button class="p-2 text-white hover:text-primary transition-colors">
+                                            <span class="material-symbols-outlined">stop</span>
+                                        </button>
+                                    </div>
+                                    <div class="h-1 flex-1 mx-4 bg-white/20 rounded-full overflow-hidden">
+                                        <div class="h-full bg-primary w-1/3"></div>
+                                    </div>
+                                    <button class="p-2 text-white hover:text-primary transition-colors">
+                                        <span class="material-symbols-outlined">replay</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+    </div>
+</body>
+
+</html>
