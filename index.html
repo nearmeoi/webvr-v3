@@ -85,12 +85,13 @@
         <main class="flex-1 relative flex flex-col items-center justify-center px-6 text-center">
 
             <!-- Hero Background -->
-            <div class="absolute inset-0 z-0">
+            <div class="absolute inset-0 z-0 overflow-hidden bg-background-dark">
                 <div
                     class="absolute inset-0 bg-gradient-to-b from-transparent via-background-light/40 to-background-light dark:via-background-dark/40 dark:to-background-dark z-10">
                 </div>
-                <!-- Changed to bg.png -->
-                <img alt="Museum background" class="w-full h-full object-cover" src="bg.png" />
+                <!-- Responsive Background Image that centers perfectly -->
+                <img alt="Museum background" class="w-full h-full min-h-[100dvh] object-cover object-center scale-105"
+                    src="bg.png" />
             </div>
 
             <!-- Content Card -->
