@@ -3,7 +3,7 @@ import { TOUR_DATA } from '../data/tourData.js'; // Import data for reference if
 import { CanvasUI } from '../utils/CanvasUI.js';
 import { AudioControls } from './AudioControls.js';
 import { CONFIG, API_BASE } from '../config.js';
-// import HOTSPOTS_DATA from '../data/hotspots.json'; // Removed static import
+
 import { SCENE_MAP } from '../data/sceneMap.js';
 
 export class PanoramaViewer {

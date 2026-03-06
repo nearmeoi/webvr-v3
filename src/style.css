@@ -611,3 +611,15 @@ body.ios-scroll-active #vr-instruction-overlay {
     min-height: 100vh !important;
     z-index: 99999 !important;
 }
+
+/* ==================== INDEX.HTML STYLES ==================== */
+#info {
+    position: absolute;
+    top: 10px;
+    width: 100%;
+    text-align: center;
+    color: #fff;
+    font-family: sans-serif;
+    pointer-events: none;
+    z-index: 100;
+}
