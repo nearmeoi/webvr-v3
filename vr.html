@@ -54,6 +54,14 @@
     class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 overflow-hidden font-display">
     <div class="relative h-screen w-full flex flex-col overflow-hidden">
 
+        <!-- Floating Volume Button -->
+        <div class="absolute top-4 right-6 z-20">
+            <button
+                class="flex items-center justify-center size-11 rounded-full bg-background-dark/80 backdrop-blur-md border border-white/10 text-white hover:bg-primary transition-colors">
+                <span class="material-symbols-outlined">volume_up</span>
+            </button>
+        </div>
+
         <!-- Main Panoramic View -->
         <main class="relative flex-1 panoramic-view w-full h-full"
             data-alt="360 panoramic view of a classical museum hall with sculptures">
